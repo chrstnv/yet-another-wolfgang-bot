@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 
-from handlers import start, section_placeholder, random_quiz, quiz_answer
+from handlers import start, section_placeholder, random_quiz, quiz_answer, audio_file_id
 from data import SECTION_REPLIES
 from keyboards import RANDOM_QUIZ_LABEL
 
@@ -18,6 +18,8 @@ def main() -> None:
 
     app.add_handler(MessageHandler(filters.Text([RANDOM_QUIZ_LABEL]), random_quiz))
     app.add_handler(CallbackQueryHandler(quiz_answer))
+
+    app.add_handler(MessageHandler(filters.AUDIO, audio_file_id))
 
     app.run_polling()
 

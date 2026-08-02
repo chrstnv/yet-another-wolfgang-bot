@@ -11,7 +11,13 @@ async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         [InlineKeyboardButton(option, callback_data=str(i))]
         for i, option in enumerate(QUIZ_QUESTION["options"])
     ])
-    await update.message.reply_text(QUIZ_QUESTION["question"], reply_markup=keyboard)
+    await update.message.reply_audio(
+        audio=QUIZ_QUESTION["audio_file_id"],
+        caption=QUIZ_QUESTION["question"],
+        reply_markup=keyboard,
+        title="🎵 Фрагмент",
+        performer="",
+    )
 
 async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -26,7 +32,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         result = "❌ Неправильно."
 
     fact = random.choice(QUIZ_QUESTION["facts"])
-    await query.edit_message_text(
+    await query.edit_message_caption(
         f"{result}\n\nЭто {QUIZ_QUESTION['options'][correct]}.\n"
         f"Фрагмент: «{QUIZ_QUESTION['fragment']}».\n\n"
         f"💡 {fact}"
@@ -37,3 +43,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def section_placeholder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(SECTION_REPLIES[update.message.text])
+
+async def audio_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(f"file_id: {update.message.audio.file_id}")
