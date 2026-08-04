@@ -22,5 +22,9 @@ QUIZ_QUESTION = {
         "Танец маленьких лебедей настолько знаменит, что его пародировали десятки раз — от мультфильмов до церемонии открытия Олимпийских игр.",
         "Несмотря на огромную популярность сегодня, премьера «Лебединого озера» в 1877 году прошла без особого успеха.",
     ],
-    "audio_file_id": "CQACAgIAAxkBAAMfam87_JxAoZkJPqE-ColpxVOW2l0AAvKnAAKJ5IBL_ia5Ofbglq09BA"
+    "audio_file_id": "CQACAgIAAxkBAANHanIvsdPMmllDp64V1_yCz6SeFhoAApumAAIgIJFLkKoZL7zGklM9BA",
+    "recording": {
+        "performer": "Gregor Quendel",
+        "source": "classicals.de",
+    },
 }

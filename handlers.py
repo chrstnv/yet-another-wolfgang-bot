@@ -16,7 +16,7 @@ async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         caption=QUIZ_QUESTION["question"],
         reply_markup=keyboard,
         title="🎵 Фрагмент",
-        performer="",
+        performer=QUIZ_QUESTION["recording"]["performer"],
     )
 
 async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -32,10 +32,14 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         result = "❌ Неправильно."
 
     fact = random.choice(QUIZ_QUESTION["facts"])
+
+    recording = QUIZ_QUESTION["recording"]
+
     await query.edit_message_caption(
         f"{result}\n\nЭто {QUIZ_QUESTION['options'][correct]}.\n"
         f"Фрагмент: «{QUIZ_QUESTION['fragment']}».\n\n"
-        f"💡 {fact}"
+        f"💡 {fact}\n\n"
+        f"🎧 Запись: {recording['performer']} — {recording['source']}"
     )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
