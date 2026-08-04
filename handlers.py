@@ -3,41 +3,44 @@ import random
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from data import QUIZ_QUESTION, SECTION_REPLIES
+from data import CARDS, CARDS_BY_ID, SECTION_REPLIES
 from keyboards import MENU_KEYBOARD
 
 async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    card = random.choice(CARDS)
+
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(option, callback_data=str(i))]
-        for i, option in enumerate(QUIZ_QUESTION["options"])
+        [InlineKeyboardButton(option, callback_data=f"{card['id']}:{i}")]
+        for i, option in enumerate(card["options"])
     ])
     await update.message.reply_audio(
-        audio=QUIZ_QUESTION["audio_file_id"],
-        caption=QUIZ_QUESTION["question"],
+        audio=card["audio_file_id"],
+        caption=card["question"],
         reply_markup=keyboard,
         title="🎵 Фрагмент",
-        performer=QUIZ_QUESTION["recording"]["performer"],
+        performer=card["recording"]["performer"],
     )
 
 async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
 
-    chosen = int(query.data)
-    correct = QUIZ_QUESTION["correct_index"]
+    card_id, chosen = query.data.split(":")
+    card = CARDS_BY_ID[card_id]
+    correct = card["correct_index"]
 
-    if chosen == correct:
+    if int(chosen) == correct:
         result = "✅ Верно!"
     else:
         result = "❌ Неправильно."
 
-    fact = random.choice(QUIZ_QUESTION["facts"])
+    fact = random.choice(card["facts"])
 
-    recording = QUIZ_QUESTION["recording"]
+    recording = card["recording"]
 
     await query.edit_message_caption(
-        f"{result}\n\nЭто {QUIZ_QUESTION['options'][correct]}.\n"
-        f"Фрагмент: «{QUIZ_QUESTION['fragment']}».\n\n"
+        f"{result}\n\nЭто {card['options'][correct]}.\n"
+        f"Фрагмент: «{card['fragment']}».\n\n"
         f"💡 {fact}\n\n"
         f"🎧 Запись: {recording['performer']} — {recording['source']}"
     )
