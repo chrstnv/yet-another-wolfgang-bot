@@ -56,11 +56,12 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     query = update.callback_query
     await query.answer()
 
-    quiz = context.user_data["quiz"]
+    quiz = context.user_data.get("quiz")
+    if not quiz or query.message.message_id != quiz["message_id"]:
+        return
 
-    if quiz["message_id"]:
-        await delete_screen(update, context, quiz["message_id"])
-        quiz["message_id"] = None
+    await delete_screen(update, context, quiz["message_id"])
+    quiz["message_id"] = None
 
     quiz["position"] += 1
 
@@ -107,7 +108,11 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     query = update.callback_query
     await query.answer()
 
-    _, card_id, chosen = query.data.split(":") 
+    quiz = context.user_data.get("quiz")
+    if not quiz or len(quiz["answers"]) > quiz["position"]:
+        return
+
+    _, card_id, chosen = query.data.split(":")
     card = CARDS_BY_ID[card_id]
     correct = card["correct_index"]
 
@@ -115,8 +120,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         result = "✅ Верно!"
     else:
         result = "❌ Неправильно."
-        
-    quiz = context.user_data["quiz"]
+
     quiz["answers"].append({"card_id": card_id, "chosen": int(chosen), "correct": correct})
 
     fact = random.choice(card["facts"])
