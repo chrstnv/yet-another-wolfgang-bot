@@ -3,8 +3,9 @@ import os
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 
+import content
 import storage
-from handlers import start, section_placeholder, random_quiz, quiz_answer, audio_file_id, next_question, restart_quiz, show_progress, effect_id
+from handlers import start, section_placeholder, random_quiz, quiz_answer, audio_file_id, next_question, restart_quiz, show_progress, effect_id, chat_id
 from data import SECTION_REPLIES
 from keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL
 
@@ -17,7 +18,11 @@ def main() -> None:
     storage.init_schema(db)
     app.bot_data["db"] = db
 
+    app.bot_data["library"] = content.load_library()
+
     app.add_handler(CommandHandler("start", start))
+
+    app.add_handler(CommandHandler("chatid", chat_id))
 
     app.add_handler(MessageHandler(filters.Text(list(SECTION_REPLIES)), section_placeholder))
 

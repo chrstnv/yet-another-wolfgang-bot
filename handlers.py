@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 import progress
 import quiz
 import storage
-from data import CARDS, CARDS_BY_ID, PLAYABLE_CARDS, QUESTION, SECTION_REPLIES
+from data import QUESTION, SECTION_REPLIES
 from keyboards import MENU_KEYBOARD
 
 # Эффект «конфетти» 🎉. Идентификаторы стандартных эффектов одинаковы у всех,
@@ -28,7 +28,7 @@ async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if previous and previous["message_id"]:
         await delete_screen(update, context, previous["message_id"])
 
-    session = quiz.start_session(PLAYABLE_CARDS)
+    session = quiz.start_session(context.bot_data["library"]["playable"])
     session["message_id"] = None
     context.user_data["quiz"] = session
 
@@ -36,11 +36,12 @@ async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = context.user_data["quiz"]
-    card = CARDS_BY_ID[quiz.current_card_id(session)]
+    library = context.bot_data["library"]
+    card = library["by_id"][quiz.current_card_id(session)]
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(option["title"], callback_data=f"answer:{option['id']}")]
-        for option in quiz.build_options(card, CARDS)
+        for option in quiz.build_options(card, library["cards"])
     ])
 
     message = await context.bot.send_audio(
@@ -82,7 +83,7 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     answers_list = [
         f"{title} — {'✅ Верно!' if is_correct else '❌ Неправильно.'}"
-        for title, is_correct in quiz.breakdown(session, CARDS_BY_ID)
+        for title, is_correct in quiz.breakdown(session, context.bot_data["library"]["by_id"])
     ]
 
     await context.bot.send_message(
@@ -116,7 +117,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     _, chosen_id = query.data.split(":")
     card_id = quiz.current_card_id(session)
-    card = CARDS_BY_ID[card_id]
+    card = context.bot_data["library"]["by_id"][card_id]
 
     quiz.record_answer(session, card_id, chosen_id)
     storage.save_answer(context.bot_data["db"], update.effective_user.id, card_id, chosen_id)
@@ -149,8 +150,9 @@ async def section_placeholder(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(SECTION_REPLIES[update.message.text])
 
 async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    library = context.bot_data["library"]
     answers = storage.get_answers(context.bot_data["db"], update.effective_user.id)
-    stats = progress.summary(answers, CARDS_BY_ID)
+    stats = progress.summary(answers, library["by_id"])
 
     if not stats["total"]:
         await update.message.reply_text(
@@ -163,21 +165,24 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "",
         f"Ответов: {stats['total']}",
         f"Верно: {stats['correct']} — это {stats['accuracy']}%",
-        f"Произведений услышано: {stats['cards_seen']} из {len(PLAYABLE_CARDS)}",
+        f"Произведений услышано: {stats['cards_seen']} из {len(library['playable'])}",
     ]
 
-    missed = progress.weakest(answers, CARDS_BY_ID)
+    missed = progress.weakest(answers, library["by_id"])
     if missed:
         lines.append("")
         lines.append("Пока даются хуже всего:")
         for card in missed:
-            title = CARDS_BY_ID[card["card_id"]]["title"]
+            title = library["by_id"][card["card_id"]]["title"]
             lines.append(f"• {title} — {card['correct']} из {card['attempts']}")
 
     await update.message.reply_text("\n".join(lines))
 
 async def audio_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"file_id: {update.message.audio.file_id}")
+
+async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(f"chat_id: {update.effective_chat.id}")
 
 async def effect_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message.effect_id:
