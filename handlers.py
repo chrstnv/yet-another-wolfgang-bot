@@ -40,6 +40,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     card = library["by_id"][quiz.current_card_id(session)]
     fragment = quiz.pick_fragment(card)
     session["fragment"] = fragment["name"]
+    session["recording"] = quiz.recording_of(card, fragment)
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(option["title"], callback_data=f"answer:{option['id']}")]
@@ -52,7 +53,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         caption=QUESTION,
         reply_markup=keyboard,
         title="🎵 Фрагмент",
-        performer=card["recording"]["performer"],
+        performer=quiz.recording_of(card, fragment)["performer"],
     )
     session["message_id"] = message.message_id
 
@@ -131,7 +132,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     fact = random.choice(card["facts"])
 
-    recording = card["recording"]
+    recording = session["recording"]
 
     original = card.get("original_title")
     naming = f"{card['title']} ({original})" if original else card["title"]

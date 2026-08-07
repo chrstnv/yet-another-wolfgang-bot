@@ -43,6 +43,9 @@ RANDOM_SLOTS = 1
 def pick_fragment(card: dict) -> dict:
     return random.choice(card["fragments"])
 
+def recording_of(card: dict, fragment: dict) -> dict:
+    return fragment.get("recording") or card["recording"]
+
 def build_options(card: dict, cards: list[dict], count: int = 4) -> list[dict]:
     others = [other for other in cards if other["id"] != card["id"]]
     listed = set(card.get("distractors", []))

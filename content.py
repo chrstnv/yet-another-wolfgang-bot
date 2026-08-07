@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 # поля, без которых карточку нельзя задать вопросом
-REQUIRED_FOR_PLAYABLE = ("facts", "recording")
+REQUIRED_FOR_PLAYABLE = ("facts",)
 
 def cards_directory() -> Path:
     raw = os.getenv("CONTENT_PATH")
@@ -48,14 +48,16 @@ def find_problems(cards: list[dict]) -> list[str]:
             if not fragment.get("audio_file_id"):
                 problems.append(f"{card_id}: у фрагмента {number} нет audio_file_id")
 
+            # у фрагмента может быть своя атрибуция: части одного произведения
+            # нередко берутся у разных исполнителей
+            recording = fragment.get("recording") or card.get("recording") or {}
+            for field in ("performer", "source"):
+                if not recording.get(field):
+                    problems.append(f"{card_id}: у фрагмента {number} в recording нет {field}")
+
         for field in REQUIRED_FOR_PLAYABLE:
             if not card.get(field):
                 problems.append(f"{card_id}: есть запись, но нет {field}")
-
-        recording = card.get("recording") or {}
-        for field in ("performer", "source"):
-            if not recording.get(field):
-                problems.append(f"{card_id}: в recording нет {field}")
 
     return problems
 

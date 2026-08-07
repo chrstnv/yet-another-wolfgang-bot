@@ -105,7 +105,22 @@ def test_playable_card_without_required_field_is_a_problem(field):
 def test_incomplete_recording_is_a_problem():
     card = playable(id="one", recording={"performer": "Кто-то"})
 
-    assert content.find_problems([card]) == ["one: в recording нет source"]
+    assert content.find_problems([card]) == ["one: у фрагмента 1 в recording нет source"]
 
 def test_card_without_audio_needs_nothing_but_a_title():
     assert content.find_problems([{"id": "one", "title": "Название"}]) == []
+
+def test_fragment_recording_satisfies_the_check():
+    card = playable(id="one")
+    del card["recording"]
+    card["fragments"][0]["recording"] = dict(RECORDING)
+
+    assert content.find_problems([card]) == []
+
+def test_fragment_without_any_recording_is_a_problem():
+    card = playable(id="one")
+    del card["recording"]
+
+    problems = content.find_problems([card])
+
+    assert any("recording" in problem for problem in problems)

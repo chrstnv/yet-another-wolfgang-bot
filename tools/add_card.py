@@ -154,11 +154,19 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
 
     if file_id:
         fragment = {"name": args.fragment or args.title, "audio_file_id": file_id}
+        recording = {"performer": args.performer, "source": args.source}
+
+        existing_recording = card.get("recording")
+        if existing_recording and existing_recording != recording:
+            # части одного произведения бывают у разных исполнителей —
+            # тогда атрибуция принадлежит фрагменту, а не карточке
+            fragment["recording"] = recording
+        else:
+            card["recording"] = recording
+
         # --append добавляет к карточке ещё один фрагмент того же произведения,
         # без него новая запись заменяет прежние
         card["fragments"] = (card.get("fragments", []) if args.append else []) + [fragment]
-
-        card["recording"] = {"performer": args.performer, "source": args.source}
         card.setdefault("facts", [])
 
     return card

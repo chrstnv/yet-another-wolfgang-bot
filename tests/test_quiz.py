@@ -158,3 +158,14 @@ def test_pick_fragment_works_for_a_single_fragment():
     card = CARDS_BY_ID["france-capital"]
 
     assert quiz.pick_fragment(card)["name"] == "Париж"
+
+def test_recording_falls_back_to_the_card():
+    card = {"recording": {"performer": "Кто-то", "source": "Откуда-то"}}
+
+    assert quiz.recording_of(card, {"name": "Фрагмент"})["performer"] == "Кто-то"
+
+def test_fragment_may_carry_its_own_recording():
+    card = {"recording": {"performer": "Кто-то", "source": "Откуда-то"}}
+    fragment = {"name": "Фрагмент", "recording": {"performer": "Другой", "source": "Иное"}}
+
+    assert quiz.recording_of(card, fragment)["performer"] == "Другой"
