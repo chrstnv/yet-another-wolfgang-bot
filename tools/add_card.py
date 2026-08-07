@@ -148,6 +148,10 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
     if args.distractor:
         card["distractors"] = args.distractor
 
+    # факты и название фрагмента можно править отдельно от записи
+    if args.fact:
+        card["facts"] = args.fact
+
     if file_id:
         fragment = {"name": args.fragment or args.title, "audio_file_id": file_id}
         # --append добавляет к карточке ещё один фрагмент того же произведения,
@@ -155,9 +159,7 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
         card["fragments"] = (card.get("fragments", []) if args.append else []) + [fragment]
 
         card["recording"] = {"performer": args.performer, "source": args.source}
-
-        if args.fact or "facts" not in card:
-            card["facts"] = args.fact
+        card.setdefault("facts", [])
 
     return card
 
