@@ -4,9 +4,15 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
+import progress
 import quiz
-from data import CARDS, CARDS_BY_ID, QUESTION, SECTION_REPLIES
+import storage
+from data import CARDS, CARDS_BY_ID, PLAYABLE_CARDS, QUESTION, SECTION_REPLIES
 from keyboards import MENU_KEYBOARD
+
+# Эффект «конфетти» 🎉. Идентификаторы стандартных эффектов одинаковы у всех,
+# получить их можно хендлером effect_id: отправить боту сообщение с эффектом.
+CONFETTI_EFFECT = "5046509860389126442"
 
 async def delete_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
     try:
@@ -22,7 +28,7 @@ async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if previous and previous["message_id"]:
         await delete_screen(update, context, previous["message_id"])
 
-    session = quiz.start_session(CARDS)
+    session = quiz.start_session(PLAYABLE_CARDS)
     session["message_id"] = None
     context.user_data["quiz"] = session
 
@@ -33,8 +39,8 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     card = CARDS_BY_ID[quiz.current_card_id(session)]
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(option, callback_data=f"answer:{card['id']}:{i}")]
-        for i, option in quiz.shuffled_options(card)
+        [InlineKeyboardButton(option["title"], callback_data=f"answer:{option['id']}")]
+        for option in quiz.build_options(card, CARDS)
     ])
 
     message = await context.bot.send_audio(
@@ -71,7 +77,7 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if session["message_id"]:
         await delete_screen(update, context, session["message_id"])
 
-    correct_count = quiz.score(session, CARDS_BY_ID)
+    correct_count = quiz.score(session)
     total = len(session["queue"])
 
     answers_list = [
@@ -82,12 +88,13 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=(
-            f"🎉 Поздравляем! Вы успешно прошли тест! Вы ответили на {correct_count} из {total} вопросов.\n\n"
+            f"{progress.verdict(correct_count, total)}\n\n"
             f"{"\n".join(answers_list)}"
         ),
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🎲 Ещё квиз", callback_data="restart")]
         ]),
+        message_effect_id=CONFETTI_EFFECT if correct_count == total else None,
     )
 
     context.user_data.pop("quiz")
@@ -107,13 +114,14 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not session or quiz.is_answered(session):
         return
 
-    _, card_id, chosen = query.data.split(":")
+    _, chosen_id = query.data.split(":")
+    card_id = quiz.current_card_id(session)
     card = CARDS_BY_ID[card_id]
-    correct = card["correct_index"]
 
-    quiz.record_answer(session, card_id, int(chosen))
+    quiz.record_answer(session, card_id, chosen_id)
+    storage.save_answer(context.bot_data["db"], update.effective_user.id, card_id, chosen_id)
 
-    if int(chosen) == correct:
+    if chosen_id == card_id:
         result = "✅ Верно!"
     else:
         result = "❌ Неправильно."
@@ -124,7 +132,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     await query.edit_message_caption(
         caption=(
-            f"{result}\n\nЭто {card['options'][correct]}.\n"
+            f"{result}\n\nЭто {card['title']}.\n"
             f"Фрагмент: «{card['fragment']}».\n\n"
             f"💡 {fact}\n\n"
             f"🎧 Запись: {recording['performer']} — {recording['source']}"
@@ -140,5 +148,37 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def section_placeholder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(SECTION_REPLIES[update.message.text])
 
+async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    answers = storage.get_answers(context.bot_data["db"], update.effective_user.id)
+    stats = progress.summary(answers, CARDS_BY_ID)
+
+    if not stats["total"]:
+        await update.message.reply_text(
+            "📈 Пока пусто. Пройдите первый квиз — и здесь появится статистика."
+        )
+        return
+
+    lines = [
+        "📈 Ваш прогресс",
+        "",
+        f"Ответов: {stats['total']}",
+        f"Верно: {stats['correct']} — это {stats['accuracy']}%",
+        f"Произведений услышано: {stats['cards_seen']} из {len(PLAYABLE_CARDS)}",
+    ]
+
+    missed = progress.weakest(answers, CARDS_BY_ID)
+    if missed:
+        lines.append("")
+        lines.append("Пока даются хуже всего:")
+        for card in missed:
+            title = CARDS_BY_ID[card["card_id"]]["title"]
+            lines.append(f"• {title} — {card['correct']} из {card['attempts']}")
+
+    await update.message.reply_text("\n".join(lines))
+
 async def audio_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"file_id: {update.message.audio.file_id}")
+
+async def effect_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message.effect_id:
+        await update.message.reply_text(f"effect_id: {update.message.effect_id}")

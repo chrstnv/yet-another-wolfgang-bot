@@ -25,22 +25,36 @@ def advance(session: dict) -> None:
 def is_finished(session: dict) -> bool:
     return session["position"] >= len(session["queue"])
 
-def is_correct(answer: dict, cards_by_id: dict) -> bool:
-    card = cards_by_id[answer["card_id"]]
+def is_correct(answer: dict) -> bool:
+    return answer["chosen"] == answer["card_id"]
 
-    return answer["chosen"] == card["correct_index"]
-
-def score(session: dict, cards_by_id: dict) -> int:
-    return sum(1 for answer in session["answers"] if is_correct(answer, cards_by_id))
+def score(session: dict) -> int:
+    return sum(1 for answer in session["answers"] if is_correct(answer))
 
 def breakdown(session: dict, cards_by_id: dict) -> list[tuple[str, bool]]:
     lines = []
     for answer in session["answers"]:
         card = cards_by_id[answer["card_id"]]
-        lines.append((card["options"][card["correct_index"]], is_correct(answer, cards_by_id)))
+        lines.append((card["title"], is_correct(answer)))
     return lines
 
-def shuffled_options(card: dict) -> list[tuple[int, str]]:
-    options = list(enumerate(card["options"]))
+RANDOM_SLOTS = 1
+
+def build_options(card: dict, cards: list[dict], count: int = 4) -> list[dict]:
+    others = [other for other in cards if other["id"] != card["id"]]
+    listed = set(card.get("distractors", []))
+
+    preferred = [other for other in others if other["id"] in listed]
+    rest = [other for other in others if other["id"] not in listed]
+    random.shuffle(preferred)
+    random.shuffle(rest)
+
+    wrong_count = count - 1
+    # часть мест отдаём подготовленным ловушкам, остальные — случайным карточкам;
+    # если одних не хватило, добираем другими
+    picked = preferred[:max(0, wrong_count - RANDOM_SLOTS)] + rest + preferred
+
+    options = [card] + picked[:wrong_count]
     random.shuffle(options)
+
     return options

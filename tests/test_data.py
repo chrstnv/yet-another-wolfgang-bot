@@ -1,31 +1,49 @@
+import pytest
+
 import data
 
 def test_ids_are_unique():
     assert len(set(card["id"] for card in data.CARDS)) == len(data.CARDS)
 
 def test_ids_are_strings():
-    assert all(isinstance(card["id"], str) for card in data.CARDS)
     for card in data.CARDS:
         assert isinstance(card["id"], str)
 
-def test_options_have_exactly_four_variants():
+def test_every_card_has_a_title():
     for card in data.CARDS:
-        assert len(card["options"]) == 4
+        assert card.get("title"), card["id"]
 
-def test_correct_index_is_within_range():
+def test_distractors_point_to_existing_cards():
     for card in data.CARDS:
-        assert 0 <= card["correct_index"] < len(card["options"])
+        for distractor_id in card.get("distractors", []):
+            assert distractor_id in data.CARDS_BY_ID, f"{card['id']} -> {distractor_id}"
 
-def test_facts_are_not_empty():
+def test_card_is_never_its_own_distractor():
     for card in data.CARDS:
-        assert card["facts"]
+        assert card["id"] not in card.get("distractors", []), card["id"]
 
-def test_audio_file_id_looks_real():
-    for card in data.CARDS:
-        file_id = card["audio_file_id"]
-        assert len(file_id) > 40 and " " not in file_id
+def test_library_is_big_enough_for_four_options():
+    assert len(data.CARDS) >= 4
 
-def test_recording_has_performer_and_source():
-    for card in data.CARDS:
-        assert card["recording"]["performer"]
-        assert card["recording"]["source"]
+def test_there_is_something_to_play():
+    assert data.PLAYABLE_CARDS
+
+@pytest.mark.parametrize("card", data.PLAYABLE_CARDS, ids=lambda card: card["id"])
+def test_playable_card_has_facts(card):
+    assert card.get("facts")
+
+@pytest.mark.parametrize("card", data.PLAYABLE_CARDS, ids=lambda card: card["id"])
+def test_playable_card_has_fragment(card):
+    assert card.get("fragment")
+
+@pytest.mark.parametrize("card", data.PLAYABLE_CARDS, ids=lambda card: card["id"])
+def test_playable_card_has_a_real_looking_audio_file_id(card):
+    file_id = card["audio_file_id"]
+
+    assert len(file_id) > 40
+    assert " " not in file_id
+
+@pytest.mark.parametrize("card", data.PLAYABLE_CARDS, ids=lambda card: card["id"])
+def test_playable_card_credits_the_recording(card):
+    assert card["recording"]["performer"]
+    assert card["recording"]["source"]
