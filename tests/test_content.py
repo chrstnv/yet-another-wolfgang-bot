@@ -10,9 +10,8 @@ RECORDING = {"performer": "Кто-то", "source": "Откуда-то"}
 def playable(**overrides) -> dict:
     card = {
         "title": "Название",
-        "fragment": "Фрагмент",
+        "fragments": [{"name": "Фрагмент", "audio_file_id": "x" * 50}],
         "facts": ["Факт"],
-        "audio_file_id": "x" * 50,
         "recording": dict(RECORDING),
     }
     card.update(overrides)
@@ -94,7 +93,7 @@ def test_self_distractor_is_a_problem():
 
     assert content.find_problems(cards) == ["one: карточка указана ловушкой сама себе"]
 
-@pytest.mark.parametrize("field", ["fragment", "facts", "recording"])
+@pytest.mark.parametrize("field", ["facts", "recording"])
 def test_playable_card_without_required_field_is_a_problem(field):
     card = playable(id="one")
     card[field] = None

@@ -38,6 +38,8 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     session = context.user_data["quiz"]
     library = context.bot_data["library"]
     card = library["by_id"][quiz.current_card_id(session)]
+    fragment = quiz.pick_fragment(card)
+    session["fragment"] = fragment["name"]
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(option["title"], callback_data=f"answer:{option['id']}")]
@@ -46,7 +48,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     message = await context.bot.send_audio(
         chat_id=update.effective_chat.id,
-        audio=card["audio_file_id"],
+        audio=fragment["audio_file_id"],
         caption=QUESTION,
         reply_markup=keyboard,
         title="🎵 Фрагмент",
@@ -134,7 +136,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await query.edit_message_caption(
         caption=(
             f"{result}\n\nЭто {card['title']}.\n"
-            f"Фрагмент: «{card['fragment']}».\n\n"
+            f"Фрагмент: «{session['fragment']}».\n\n"
             f"💡 {fact}\n\n"
             f"🎧 Запись: {recording['performer']} — {recording['source']}"
         ),

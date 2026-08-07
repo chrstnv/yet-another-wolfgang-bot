@@ -8,17 +8,17 @@ CARDS = [
         "id": "france-capital",
         "title": "Париж",
         "distractors": ["germany-capital", "italy-capital"],
-        "audio_file_id": "audio-france",
+        "fragments": [{"name": "Париж", "audio_file_id": "a"}],
     },
     {
         "id": "germany-capital",
         "title": "Берлин",
-        "audio_file_id": "audio-germany",
+        "fragments": [{"name": "Берлин", "audio_file_id": "b"}],
     },
     {
         "id": "italy-capital",
         "title": "Рим",
-        "audio_file_id": "audio-italy",
+        "fragments": [{"name": "Рим", "audio_file_id": "c"}, {"name": "Рим-2", "audio_file_id": "d"}],
     },
     # карточки без записи: в квиз не попадают, но годятся в варианты ответа
     {"id": "spain-capital", "title": "Мадрид"},
@@ -27,7 +27,7 @@ CARDS = [
 
 CARDS_BY_ID = {card["id"]: card for card in CARDS}
 
-PLAYABLE = [card for card in CARDS if card.get("audio_file_id")]
+PLAYABLE = [card for card in CARDS if card.get("fragments")]
 
 @pytest.fixture
 def session():
@@ -146,3 +146,15 @@ def test_build_options_does_not_mutate_the_card_list():
     quiz.build_options(CARDS_BY_ID["france-capital"], CARDS)
 
     assert CARDS == before
+
+def test_pick_fragment_returns_one_of_the_cards_fragments():
+    card = CARDS_BY_ID["italy-capital"]
+
+    picked = {quiz.pick_fragment(card)["name"] for _ in range(50)}
+
+    assert picked == {"Рим", "Рим-2"}
+
+def test_pick_fragment_works_for_a_single_fragment():
+    card = CARDS_BY_ID["france-capital"]
+
+    assert quiz.pick_fragment(card)["name"] == "Париж"

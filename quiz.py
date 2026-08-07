@@ -40,6 +40,9 @@ def breakdown(session: dict, cards_by_id: dict) -> list[tuple[str, bool]]:
 
 RANDOM_SLOTS = 1
 
+def pick_fragment(card: dict) -> dict:
+    return random.choice(card["fragments"])
+
 def build_options(card: dict, cards: list[dict], count: int = 4) -> list[dict]:
     others = [other for other in cards if other["id"] != card["id"]]
     listed = set(card.get("distractors", []))

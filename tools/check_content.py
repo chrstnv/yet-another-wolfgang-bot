@@ -23,8 +23,8 @@ def main() -> int:
         return 1
 
     problems = content.find_problems(cards)
-    playable = [card for card in cards if card.get("audio_file_id")]
-    silent = [card for card in cards if not card.get("audio_file_id")]
+    playable = [card for card in cards if card.get("fragments")]
+    silent = [card for card in cards if not card.get("fragments")]
 
     print(f"Карточек: {len(cards)}")
     print(f"  с записью: {len(playable)}")

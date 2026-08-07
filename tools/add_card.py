@@ -44,6 +44,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source", help="источник записи")
     parser.add_argument("--distractor", action="append", default=[], help="предпочтительная ловушка, можно повторять")
     parser.add_argument("--update", action="store_true", help="перезаписать существующую карточку")
+    parser.add_argument("--append", action="store_true", help="добавить ещё один фрагмент, не заменяя прежние")
 
     return parser.parse_args()
 
@@ -148,11 +149,13 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
         card["distractors"] = args.distractor
 
     if file_id:
-        card["audio_file_id"] = file_id
+        fragment = {"name": args.fragment or args.title, "audio_file_id": file_id}
+        # --append добавляет к карточке ещё один фрагмент того же произведения,
+        # без него новая запись заменяет прежние
+        card["fragments"] = (card.get("fragments", []) if args.append else []) + [fragment]
+
         card["recording"] = {"performer": args.performer, "source": args.source}
 
-        if args.fragment or "fragment" not in card:
-            card["fragment"] = args.fragment or args.title
         if args.fact or "facts" not in card:
             card["facts"] = args.fact
 
@@ -169,7 +172,7 @@ def main() -> int:
         return 1
 
     path = directory / f"{args.id}.json"
-    if path.exists() and not args.update:
+    if path.exists() and not (args.update or args.append):
         print(f"Карточка уже существует: {path}. Для перезаписи добавьте --update.")
         return 1
 

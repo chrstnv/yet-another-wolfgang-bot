@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 # поля, без которых карточку нельзя задать вопросом
-REQUIRED_FOR_PLAYABLE = ("fragment", "facts", "recording")
+REQUIRED_FOR_PLAYABLE = ("facts", "recording")
 
 def cards_directory() -> Path:
     raw = os.getenv("CONTENT_PATH")
@@ -38,8 +38,15 @@ def find_problems(cards: list[dict]) -> list[str]:
             elif distractor_id not in known:
                 problems.append(f"{card_id}: ловушка «{distractor_id}» не существует")
 
-        if not card.get("audio_file_id"):
+        fragments = card.get("fragments") or []
+        if not fragments:
             continue
+
+        for number, fragment in enumerate(fragments, start=1):
+            if not fragment.get("name"):
+                problems.append(f"{card_id}: у фрагмента {number} нет name")
+            if not fragment.get("audio_file_id"):
+                problems.append(f"{card_id}: у фрагмента {number} нет audio_file_id")
 
         for field in REQUIRED_FOR_PLAYABLE:
             if not card.get(field):
@@ -73,5 +80,5 @@ def load_library(directory: Path | None = None) -> dict:
     return {
         "cards": cards,
         "by_id": {card["id"]: card for card in cards},
-        "playable": [card for card in cards if card.get("audio_file_id")],
+        "playable": [card for card in cards if card.get("fragments")],
     }
