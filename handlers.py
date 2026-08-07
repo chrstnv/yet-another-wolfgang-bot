@@ -133,10 +133,18 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     recording = card["recording"]
 
+    original = card.get("original_title")
+    naming = f"{card['title']} ({original})" if original else card["title"]
+
+    # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
+    fragment_line = ""
+    if session["fragment"] not in card["title"]:
+        fragment_line = f"Фрагмент: «{session['fragment']}».\n"
+
     await query.edit_message_caption(
         caption=(
-            f"{result}\n\nЭто {card['title']}.\n"
-            f"Фрагмент: «{session['fragment']}».\n\n"
+            f"{result}\n\nЭто {naming}.\n"
+            f"{fragment_line}\n"
             f"💡 {fact}\n\n"
             f"🎧 Запись: {recording['performer']} — {recording['source']}"
         ),
