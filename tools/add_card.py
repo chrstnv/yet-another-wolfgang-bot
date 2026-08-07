@@ -25,6 +25,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from telegram import Bot
+from telegram.error import TelegramError
 
 import content
 
@@ -42,15 +43,41 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--performer", help="исполнитель записи")
     parser.add_argument("--source", help="источник записи")
     parser.add_argument("--distractor", action="append", default=[], help="предпочтительная ловушка, можно повторять")
+    parser.add_argument("--update", action="store_true", help="перезаписать существующую карточку")
 
     return parser.parse_args()
+
+def audio_codec(source: Path) -> str:
+    result = subprocess.run(
+        [
+            "ffprobe", "-v", "error",
+            "-select_streams", "a:0",
+            "-show_entries", "stream=codec_name",
+            "-of", "default=nw=1:nk=1",
+            str(source),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    return result.stdout.strip()
 
 def cut_fragment(source: Path, target: Path, start: str, duration: str) -> None:
     """Вырезает кусок, снимает обложку и главы, ставит нейтральный заголовок.
 
     Метаданные не стираются целиком: artist, comment и copyright несут атрибуцию
     записи, а её удаление нарушило бы условия лицензии.
+
+    Часть исходников только называются mp3, а внутри лежит другой кодек — такие
+    приходится перекодировать, потоковое копирование на них не работает.
     """
+    codec = audio_codec(source)
+    encoding = ["-codec", "copy"] if codec == "mp3" else ["-codec:a", "libmp3lame", "-q:a", "2"]
+
+    if codec != "mp3":
+        print(f"Исходник в формате {codec}, перекодирую в mp3")
+
     subprocess.run(
         [
             "ffmpeg", "-y", "-loglevel", "error",
@@ -59,13 +86,13 @@ def cut_fragment(source: Path, target: Path, start: str, duration: str) -> None:
             "-vn", "-map_chapters", "-1",
             "-metadata", "title=Фрагмент",
             "-metadata", "album=",
-            "-codec", "copy",
+            *encoding,
             str(target),
         ],
         check=True,
     )
 
-async def upload(path: Path, performer: str | None) -> str:
+async def upload_once(path: Path, performer: str | None) -> str:
     token = os.getenv("BOT_TOKEN")
     chat_id = os.getenv("ADMIN_CHAT_ID")
 
@@ -83,21 +110,51 @@ async def upload(path: Path, performer: str | None) -> str:
                 title=FRAGMENT_TITLE,
                 performer=performer or "",
                 caption=f"Загружено tools.add_card: {path.name}",
+                # значения по умолчанию рассчитаны на короткие запросы,
+                # а здесь уходит файл на несколько мегабайт
+                connect_timeout=30,
+                write_timeout=180,
+                read_timeout=60,
             )
 
     return message.audio.file_id
 
-def build_card(args: argparse.Namespace, file_id: str | None) -> dict:
-    card = {"title": args.title}
+async def upload(path: Path, performer: str | None, attempts: int = 4) -> str:
+    """Загружает файл, переживая сетевые сбои.
+
+    Обрывы соединения при заливке — обычное дело, а на десятках карточек подряд
+    почти неизбежное. Ошибку отдаём наружу только если не помогла ни одна попытка.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return await upload_once(path, performer)
+        except TelegramError as error:
+            if attempt == attempts:
+                raise
+            pause = 2 ** attempt
+            print(f"  попытка {attempt} не удалась ({type(error).__name__}), жду {pause}с")
+            await asyncio.sleep(pause)
+
+def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | None = None) -> dict:
+    """Собирает карточку. При обновлении сохраняет то, что не передано явно:
+    заменить запись, не потеряв уже написанные факты, — обычное дело.
+    """
+    card = dict(existing or {})
+    card.pop("id", None)
+
+    card["title"] = args.title
 
     if args.distractor:
         card["distractors"] = args.distractor
 
     if file_id:
-        card["fragment"] = args.fragment or args.title
-        card["facts"] = args.fact
         card["audio_file_id"] = file_id
         card["recording"] = {"performer": args.performer, "source": args.source}
+
+        if args.fragment or "fragment" not in card:
+            card["fragment"] = args.fragment or args.title
+        if args.fact or "facts" not in card:
+            card["facts"] = args.fact
 
     return card
 
@@ -112,8 +169,8 @@ def main() -> int:
         return 1
 
     path = directory / f"{args.id}.json"
-    if path.exists():
-        print(f"Карточка уже существует: {path}")
+    if path.exists() and not args.update:
+        print(f"Карточка уже существует: {path}. Для перезаписи добавьте --update.")
         return 1
 
     if args.audio:
@@ -122,7 +179,7 @@ def main() -> int:
                 print(f"Для карточки с записью нужен --{field}: это условие лицензии.")
                 return 1
 
-        if not args.fact:
+        if not args.fact and not (path.exists() and content.read_card(path).get("facts")):
             print("Предупреждение: фактов нет, после ответа боту будет нечего показать.")
 
         source = Path(args.audio).expanduser()
@@ -139,11 +196,13 @@ def main() -> int:
     else:
         file_id = None
 
+    existing = content.read_card(path) if path.exists() else None
+
     path.write_text(
-        json.dumps(build_card(args, file_id), ensure_ascii=False, indent=2) + "\n",
+        json.dumps(build_card(args, file_id, existing), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(f"Записано: {path}")
+    print(f"{'Обновлено' if existing else 'Записано'}: {path}")
 
     cards = sorted(
         (content.read_card(item) for item in directory.glob("*.json")),
