@@ -4,6 +4,7 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
+import quiz
 from data import CARDS, CARDS_BY_ID, QUESTION, SECTION_REPLIES
 from keyboards import MENU_KEYBOARD
 
@@ -21,25 +22,19 @@ async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if previous and previous["message_id"]:
         await delete_screen(update, context, previous["message_id"])
 
-    context.user_data["quiz"] = {
-        "queue": [card["id"] for card in random.sample(CARDS, k=min(5, len(CARDS)))],
-        "position": 0,
-        "answers": [],
-        "message_id": None,
-    }
+    session = quiz.start_session(CARDS)
+    session["message_id"] = None
+    context.user_data["quiz"] = session
 
     await send_question(update, context)
 
 async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    quiz = context.user_data["quiz"]
-    card = CARDS_BY_ID[quiz["queue"][quiz["position"]]]
-
-    options = list(enumerate(card["options"]))
-    random.shuffle(options)
+    session = context.user_data["quiz"]
+    card = CARDS_BY_ID[quiz.current_card_id(session)]
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(option, callback_data=f"answer:{card['id']}:{i}")]
-        for i, option in options
+        for i, option in quiz.shuffled_options(card)
     ])
 
     message = await context.bot.send_audio(
@@ -50,44 +45,44 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         title="🎵 Фрагмент",
         performer=card["recording"]["performer"],
     )
-    quiz["message_id"] = message.message_id
+    session["message_id"] = message.message_id
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
 
-    quiz = context.user_data.get("quiz")
-    if not quiz or query.message.message_id != quiz["message_id"]:
+    session = context.user_data.get("quiz")
+    if not session or query.message.message_id != session["message_id"]:
         return
 
-    await delete_screen(update, context, quiz["message_id"])
-    quiz["message_id"] = None
+    await delete_screen(update, context, session["message_id"])
+    session["message_id"] = None
 
-    quiz["position"] += 1
+    quiz.advance(session)
 
-    if quiz["position"] < len(quiz["queue"]):
-        await send_question(update, context)
-    else:
+    if quiz.is_finished(session):
         await finish_quiz(update, context)
+    else:
+        await send_question(update, context)
 
 async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    quiz = context.user_data["quiz"]
+    session = context.user_data["quiz"]
 
-    if quiz["message_id"]:
-        await delete_screen(update, context, quiz["message_id"])
+    if session["message_id"]:
+        await delete_screen(update, context, session["message_id"])
 
-    score = sum(1 for answer in quiz["answers"] if answer["chosen"] == answer["correct"])
-    total = len(quiz["queue"])
+    correct_count = quiz.score(session, CARDS_BY_ID)
+    total = len(session["queue"])
 
     answers_list = [
-        f"{CARDS_BY_ID[answer['card_id']]['options'][answer['correct']]} — {'✅ Верно!' if answer['chosen'] == answer['correct'] else '❌ Неправильно.'}"
-        for answer in quiz["answers"]
+        f"{title} — {'✅ Верно!' if is_correct else '❌ Неправильно.'}"
+        for title, is_correct in quiz.breakdown(session, CARDS_BY_ID)
     ]
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=(
-            f"🎉 Поздравляем! Вы успешно прошли тест! Вы ответили на {score} из {total} вопросов.\n\n"
+            f"🎉 Поздравляем! Вы успешно прошли тест! Вы ответили на {correct_count} из {total} вопросов.\n\n"
             f"{"\n".join(answers_list)}"
         ),
         reply_markup=InlineKeyboardMarkup([
@@ -108,20 +103,20 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     query = update.callback_query
     await query.answer()
 
-    quiz = context.user_data.get("quiz")
-    if not quiz or len(quiz["answers"]) > quiz["position"]:
+    session = context.user_data.get("quiz")
+    if not session or quiz.is_answered(session):
         return
 
     _, card_id, chosen = query.data.split(":")
     card = CARDS_BY_ID[card_id]
     correct = card["correct_index"]
 
+    quiz.record_answer(session, card_id, int(chosen))
+
     if int(chosen) == correct:
         result = "✅ Верно!"
     else:
         result = "❌ Неправильно."
-
-    quiz["answers"].append({"card_id": card_id, "chosen": int(chosen), "correct": correct})
 
     fact = random.choice(card["facts"])
 
