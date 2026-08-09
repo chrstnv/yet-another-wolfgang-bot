@@ -114,6 +114,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         chat_id=update.effective_chat.id,
         audio=fragment["audio_file_id"],
         caption=progress.question_caption(session),
+        parse_mode="HTML",
         reply_markup=keyboard,
         title="🎵 Фрагмент",
         performer=quiz.recording_of(card, fragment)["performer"],

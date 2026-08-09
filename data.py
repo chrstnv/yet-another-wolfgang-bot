@@ -43,9 +43,9 @@ STREAK_RECORD = "Ваш рекорд: {record}."
 
 QUESTION = "🎵 Послушайте фрагмент. Какое это произведение?"
 
-QUESTION_COUNTER = "Вопрос {number} из {total}"
+QUESTION_COUNTER = "<b>Вопрос {number} из {total}</b>"
 
-STREAK_COUNTER = "🔥 {length} подряд"
+STREAK_COUNTER = "<b>🔥 {length} подряд</b>"
 
 VERDICTS = {
     "perfect": "Идеально. {correct} из {total}, ни одной ошибки.",
