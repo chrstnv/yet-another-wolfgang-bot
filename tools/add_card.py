@@ -145,6 +145,10 @@ def cut_fragment(source: Path, target: Path, start: str, duration: str, gain: fl
 QUIET_PEAK = -12.0
 # оставляем запас, чтобы подъём ничего не срезал
 TARGET_PEAK = -4.0
+# выше этого не поднимаем: усилитель не отличает музыку от шума, и на тихой
+# записи вместе с оркестром вырастает зал, лента и всё остальное. Тихий
+# фрагмент лучше оставить тихим, чем превратить в шипение
+MAX_GAIN = 10.0
 
 def peak_level(path: Path) -> float:
     """Самый громкий отсчёт фрагмента, в децибелах относительно максимума."""
@@ -311,8 +315,14 @@ def main() -> int:
             # рядом с громкими; поднимаем по пику, чтобы не трогать динамику внутри
             peak = peak_level(fragment)
             if peak < QUIET_PEAK:
-                gain = TARGET_PEAK - peak
+                gain = min(TARGET_PEAK - peak, MAX_GAIN)
                 print(f"Запись тихая (пик {peak:.1f} дБ), поднимаю на {gain:.1f} дБ")
+                if TARGET_PEAK - peak > MAX_GAIN:
+                    print(
+                        f"  до уровня библиотеки не хватает {TARGET_PEAK - peak - MAX_GAIN:.1f} дБ, "
+                        f"но выше поднимать нельзя: вылезет шум. Возможно, стоит взять "
+                        f"фрагмент из более громкого места"
+                    )
                 cut_fragment(source, fragment, args.start, args.duration, gain=gain)
 
             pause = leading_silence(fragment)
