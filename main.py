@@ -6,12 +6,11 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import content
 import storage
 from handlers import (
-    start, section_placeholder, random_quiz, quiz_answer, audio_file_id, next_question,
-    restart_quiz, show_progress, effect_id, chat_id, review_quiz, show_quiz_modes,
+    start, random_quiz, quiz_answer, audio_file_id, next_question,
+    restart_quiz, show_progress, effect_id, chat_id, review_quiz,
     streak_quiz, reveal_options, settings_screen, toggle_hide_options,
 )
-from data import SECTION_REPLIES
-from keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, ALL_QUIZZES_LABEL, SETTINGS_LABEL
+from keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL, STREAK_LABEL
 
 load_dotenv()
 
@@ -28,18 +27,18 @@ def main() -> None:
 
     app.add_handler(CommandHandler("chatid", chat_id))
 
-    app.add_handler(MessageHandler(filters.Text(list(SECTION_REPLIES)), section_placeholder))
-
     app.add_handler(MessageHandler(filters.Text([PROGRESS_LABEL]), show_progress))
 
     app.add_handler(MessageHandler(filters.Text([SETTINGS_LABEL]), settings_screen))
 
-    app.add_handler(MessageHandler(filters.Text([ALL_QUIZZES_LABEL]), show_quiz_modes))
+    app.add_handler(MessageHandler(filters.Text([STREAK_LABEL]), streak_quiz))
+
+    app.add_handler(MessageHandler(filters.Text([REVIEW_LABEL]), review_quiz))
 
     app.add_handler(MessageHandler(filters.Text([RANDOM_QUIZ_LABEL]), random_quiz))
 
     app.add_handler(CallbackQueryHandler(quiz_answer, pattern=r"^answer:"))
-    
+
     app.add_handler(CallbackQueryHandler(next_question, pattern=r"^next$"))
 
     app.add_handler(CallbackQueryHandler(restart_quiz, pattern=r"^restart$"))

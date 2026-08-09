@@ -8,8 +8,8 @@ import progress
 import quiz
 import storage
 from data import (
-    GREETING, QUIZ_MODES, REVEAL_ANSWERS, SECTION_REPLIES,
-    SETTINGS, SETTINGS_OFF, SETTINGS_ON, STREAK_START,
+    GREETING, REVEAL_ANSWERS, SETTINGS, SETTINGS_OFF,
+    SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
 from keyboards import MENU_KEYBOARD
 
@@ -20,7 +20,7 @@ from keyboards import MENU_KEYBOARD
 CONFETTI_EFFECT = "5046509860389126442"
 FIRE_EFFECT = "5104841245755180586"
 
-async def delete_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
+async def remove_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
     try:
         await context.bot.delete_message(
             chat_id=update.effective_chat.id,
@@ -29,7 +29,23 @@ async def delete_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, mess
     except TelegramError:
         pass
 
+async def delete_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
+    await remove_message(update, context, message_id)
     storage.forget_sent_audio(context.bot_data["db"], update.effective_user.id, message_id)
+
+async def dismiss_tap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Убирает след нажатия: у кнопки меню — само сообщение, у кнопки под
+    сообщением — клавиатуру. Ответ бота говорит сам за себя, а нажатое
+    только засоряет переписку.
+    """
+    if update.message:
+        await remove_message(update, context, update.message.message_id)
+        return
+
+    query = update.callback_query
+    if query:
+        await query.answer()
+        await query.edit_message_reply_markup(reply_markup=None)
 
 async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Убирает из чата все аудиосообщения, что бот успел прислать.
@@ -51,6 +67,9 @@ async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     storage.forget_sent_audio(db, user_id)
 
 async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message:
+        await remove_message(update, context, update.message.message_id)
+
     await clear_audio(update, context)
 
     session = quiz.start_session(context.bot_data["library"]["playable"])
@@ -120,6 +139,8 @@ def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
     )
 
 async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await remove_message(update, context, update.message.message_id)
+
     hidden = storage.hide_options(context.bot_data["db"], update.effective_user.id)
     text, keyboard = settings_view(hidden)
 
@@ -127,13 +148,15 @@ async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await query.answer()
 
     db = context.bot_data["db"]
     user_id = update.effective_user.id
 
     hidden = not storage.hide_options(db, user_id)
     storage.set_hide_options(db, user_id, hidden)
+
+    # всплывающая подсказка: смена слова в тексте сама по себе незаметна
+    await query.answer(SETTINGS_TOAST[hidden])
 
     text, keyboard = settings_view(hidden)
     await query.edit_message_text(text, reply_markup=keyboard)
@@ -190,9 +213,7 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     context.user_data.pop("quiz")
 
 async def review_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup(reply_markup=None)
+    await dismiss_tap(update, context)
 
     library = context.bot_data["library"]
     answers = storage.get_answers(context.bot_data["db"], update.effective_user.id)
@@ -237,9 +258,7 @@ async def finish_streak(update: Update, context: ContextTypes.DEFAULT_TYPE, leng
     context.user_data.pop("quiz")
 
 async def streak_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup(reply_markup=None)
+    await dismiss_tap(update, context)
 
     await clear_audio(update, context)
 
@@ -254,9 +273,7 @@ async def streak_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await send_question(update, context)
 
 async def restart_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup(reply_markup=None)
+    await dismiss_tap(update, context)
 
     await random_quiz(update, context)
 
@@ -309,20 +326,9 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(GREETING, reply_markup=MENU_KEYBOARD)
 
-async def section_placeholder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(SECTION_REPLIES[update.message.text])
-
-async def show_quiz_modes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        QUIZ_MODES,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎲 Случайный квиз", callback_data="restart")],
-            [InlineKeyboardButton("🔥 Серия", callback_data="streak")],
-            [InlineKeyboardButton("🔁 Работа над ошибками", callback_data="review")],
-        ]),
-    )
-
 async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await remove_message(update, context, update.message.message_id)
+
     library = context.bot_data["library"]
     answers = storage.get_answers(context.bot_data["db"], update.effective_user.id)
     stats = progress.summary(answers, library["by_id"])

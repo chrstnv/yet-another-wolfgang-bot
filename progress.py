@@ -10,11 +10,11 @@ def question_caption(session: dict) -> str:
     """
     if session.get("mode") == quiz.STREAK:
         taken = session["position"]
-        return f"{QUESTION}\n\n{STREAK_COUNTER.format(length=taken)}" if taken else QUESTION
+        return f"{STREAK_COUNTER.format(length=taken)}\n\n{QUESTION}" if taken else QUESTION
 
     return "{}\n\n{}".format(
-        QUESTION,
         QUESTION_COUNTER.format(number=session["position"] + 1, total=len(session["queue"])),
+        QUESTION,
     )
 
 def streak_message(length: int, best: int) -> str:
