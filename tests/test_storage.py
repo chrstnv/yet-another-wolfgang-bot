@@ -37,3 +37,17 @@ def test_data_survives_connection_close(tmp_path):
 
     conn = storage.connect(str(db_path))
     assert storage.get_answers(conn, 42) == [{"card_id": "bach-badinerie", "chosen": "bach-badinerie"}]
+def test_best_streak_is_zero_without_runs(conn):
+    assert storage.best_streak(conn, 1) == 0
+
+def test_best_streak_takes_the_longest_run(conn):
+    storage.save_streak_run(conn, 1, 3)
+    storage.save_streak_run(conn, 1, 7)
+    storage.save_streak_run(conn, 1, 5)
+
+    assert storage.best_streak(conn, 1) == 7
+
+def test_streak_runs_are_kept_per_user(conn):
+    storage.save_streak_run(conn, 1, 9)
+
+    assert storage.best_streak(conn, 2) == 0

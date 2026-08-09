@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 import progress
 import quiz
 import storage
-from data import GREETING, QUESTION, QUIZ_MODES, SECTION_REPLIES
+from data import GREETING, QUESTION, QUIZ_MODES, SECTION_REPLIES, STREAK_RESULTS, STREAK_START
 from keyboards import MENU_KEYBOARD
 
 # Эффект «конфетти» 🎉. Идентификаторы стандартных эффектов одинаковы у всех,
@@ -68,9 +68,10 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await delete_screen(update, context, session["message_id"])
     session["message_id"] = None
 
+    broken = session.get("mode") == quiz.STREAK and quiz.last_answer_was_wrong(session)
     quiz.advance(session)
 
-    if quiz.is_finished(session):
+    if broken or quiz.is_finished(session):
         await finish_quiz(update, context)
     else:
         await send_question(update, context)
@@ -83,6 +84,10 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     correct_count = quiz.score(session)
     total = len(session["queue"])
+
+    if session.get("mode") == quiz.STREAK:
+        await finish_streak(update, context, correct_count)
+        return
 
     answers_list = [
         f"{title} — {'✅ Верно!' if is_correct else '❌ Неправильно.'}"
@@ -133,6 +138,51 @@ async def review_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     await send_question(update, context)
 
+async def finish_streak(update: Update, context: ContextTypes.DEFAULT_TYPE, length: int) -> None:
+    db = context.bot_data["db"]
+    user_id = update.effective_user.id
+
+    was_best = storage.best_streak(db, user_id)
+    storage.save_streak_run(db, user_id, length)
+
+    if not length:
+        key = "zero"
+    elif length > was_best:
+        key = "record"
+    else:
+        key = "some"
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=STREAK_RESULTS[key].format(length=length),
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔥 Ещё серия", callback_data="streak")],
+            [InlineKeyboardButton("🎲 Случайный квиз", callback_data="restart")],
+        ]),
+        message_effect_id=CONFETTI_EFFECT if key == "record" and length else None,
+    )
+
+    context.user_data.pop("quiz")
+
+async def streak_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_reply_markup(reply_markup=None)
+
+    previous = context.user_data.get("quiz")
+    if previous and previous["message_id"]:
+        await delete_screen(update, context, previous["message_id"])
+
+    # очередь во всю библиотеку: серия обрывается ошибкой, а не концом списка
+    playable = context.bot_data["library"]["playable"]
+    session = quiz.start_session(playable, length=len(playable))
+    session["mode"] = quiz.STREAK
+    session["message_id"] = None
+    context.user_data["quiz"] = session
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=STREAK_START)
+    await send_question(update, context)
+
 async def restart_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -157,13 +207,8 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if chosen_id == card_id:
         result = "✅ Верно!"
-        # серию показываем только когда она уже чего-то стоит
-        run = progress.streaks(
-            storage.get_answers(context.bot_data["db"], update.effective_user.id),
-            context.bot_data["library"]["by_id"],
-        )["current"]
-        if run >= 3:
-            result += f" 🔥 {run} подряд."
+        if session.get("mode") == quiz.STREAK:
+            result += f" 🔥 {quiz.score(session)} подряд."
     else:
         result = "❌ Неправильно."
 
@@ -202,6 +247,7 @@ async def show_quiz_modes(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         QUIZ_MODES,
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🎲 Случайный квиз", callback_data="restart")],
+            [InlineKeyboardButton("🔥 Серия", callback_data="streak")],
             [InlineKeyboardButton("🔁 Работа над ошибками", callback_data="review")],
         ]),
     )
@@ -217,7 +263,7 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
         return
 
-    run = progress.streaks(answers, library["by_id"])
+    record = storage.best_streak(context.bot_data["db"], update.effective_user.id)
 
     lines = [
         "📈 Ваш прогресс",
@@ -225,8 +271,10 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"Ответов: {stats['total']}",
         f"Верно: {stats['correct']} — это {stats['accuracy']}%",
         f"Произведений услышано: {stats['cards_seen']} из {len(library['playable'])}",
-        f"Серия: {run['current']} подряд, лучшая — {run['best']}",
     ]
+
+    if record:
+        lines.append(f"Лучшая серия: {record} подряд")
 
     missed = progress.weakest(answers, library["by_id"])
     if missed:

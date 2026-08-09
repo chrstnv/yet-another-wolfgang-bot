@@ -2,12 +2,20 @@ import random
 
 QUIZ_LENGTH = 5
 
-def session_for(card_ids: list[str]) -> dict:
+STREAK = "streak"
+
+def session_for(card_ids: list[str], mode: str = "quiz") -> dict:
     return {
         "queue": list(card_ids),
         "position": 0,
         "answers": [],
+        "mode": mode,
     }
+
+def last_answer_was_wrong(session: dict) -> bool:
+    answers = session["answers"]
+
+    return bool(answers) and not is_correct(answers[-1])
 
 def start_session(cards: list[dict], length: int = QUIZ_LENGTH) -> dict:
     selected = random.sample(cards, k=min(length, len(cards)))

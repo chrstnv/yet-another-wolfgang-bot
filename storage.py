@@ -16,6 +16,32 @@ def init_schema(conn: sqlite3.Connection) -> None:
             answered_at TEXT    NOT NULL DEFAULT (datetime('now'))
         )
     """)
+    init_streaks(conn)
+
+def init_streaks(conn: sqlite3.Connection) -> None:
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS streak_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER NOT NULL,
+            length      INTEGER NOT NULL,
+            finished_at TEXT    NOT NULL DEFAULT (datetime('now'))
+        )
+    """)
+
+def save_streak_run(conn: sqlite3.Connection, user_id: int, length: int) -> None:
+    conn.execute(
+        "INSERT INTO streak_runs (user_id, length) VALUES (?, ?)",
+        (user_id, length),
+    )
+    conn.commit()
+
+def best_streak(conn: sqlite3.Connection, user_id: int) -> int:
+    row = conn.execute(
+        "SELECT MAX(length) AS best FROM streak_runs WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+
+    return row["best"] or 0
 
 def save_answer(conn: sqlite3.Connection, user_id: int, card_id: str, chosen: str) -> None:
     conn.execute("""

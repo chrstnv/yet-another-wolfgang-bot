@@ -184,3 +184,23 @@ def test_session_for_copies_the_list():
     given.append("germany-capital")
 
     assert session["queue"] == ["france-capital"]
+
+def test_session_carries_its_mode():
+    assert quiz.session_for(["france-capital"])["mode"] == "quiz"
+    assert quiz.session_for(["france-capital"], mode=quiz.STREAK)["mode"] == quiz.STREAK
+
+def test_last_answer_was_wrong_needs_an_answer():
+    session = quiz.session_for(["france-capital"])
+
+    assert not quiz.last_answer_was_wrong(session)
+
+def test_last_answer_was_wrong_looks_only_at_the_last():
+    session = quiz.session_for(["france-capital", "germany-capital"])
+    quiz.record_answer(session, "france-capital", "italy-capital")
+    quiz.record_answer(session, "germany-capital", "germany-capital")
+
+    assert not quiz.last_answer_was_wrong(session)
+
+    quiz.record_answer(session, "italy-capital", "france-capital")
+
+    assert quiz.last_answer_was_wrong(session)

@@ -142,26 +142,6 @@ def test_verdict_softens_a_weak_run():
 def test_verdict_shows_the_numbers():
     assert "3 из 5" in progress.verdict(3, 5)
 
-def test_streaks_count_the_tail_and_the_best_run():
-    answers = [
-        answer("france-capital", True),
-        answer("germany-capital", True),
-        answer("italy-capital", True),
-        answer("france-capital", False),
-        answer("germany-capital", True),
-        answer("italy-capital", True),
-    ]
-
-    assert progress.streaks(answers, CARDS_BY_ID) == {"current": 2, "best": 3}
-
-def test_streaks_of_no_answers_are_zero():
-    assert progress.streaks([], CARDS_BY_ID) == {"current": 0, "best": 0}
-
-def test_streak_breaks_on_the_last_answer():
-    answers = [answer("france-capital", True), answer("germany-capital", False)]
-
-    assert progress.streaks(answers, CARDS_BY_ID)["current"] == 0
-
 def test_to_review_takes_only_cards_with_mistakes():
     answers = [
         answer("france-capital", True),

@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 import content
 import storage
-from handlers import start, section_placeholder, random_quiz, quiz_answer, audio_file_id, next_question, restart_quiz, show_progress, effect_id, chat_id, review_quiz, show_quiz_modes
+from handlers import start, section_placeholder, random_quiz, quiz_answer, audio_file_id, next_question, restart_quiz, show_progress, effect_id, chat_id, review_quiz, show_quiz_modes, streak_quiz
 from data import SECTION_REPLIES
 from keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, ALL_QUIZZES_LABEL
 
@@ -39,6 +39,8 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(restart_quiz, pattern=r"^restart$"))
 
     app.add_handler(CallbackQueryHandler(review_quiz, pattern=r"^review$"))
+
+    app.add_handler(CallbackQueryHandler(streak_quiz, pattern=r"^streak$"))
 
     app.add_handler(MessageHandler(filters.AUDIO, audio_file_id))
 

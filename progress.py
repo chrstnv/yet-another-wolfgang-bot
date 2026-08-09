@@ -44,23 +44,6 @@ def weakest(answers: list[dict], cards_by_id: dict, limit: int = 3) -> list[dict
 
     return missed[:limit]
 
-def streaks(answers: list[dict], cards_by_id: dict) -> dict:
-    """Считает серии верных ответов подряд.
-
-    Порядок ответов здесь значим — он хронологический, из базы.
-    """
-    current = 0
-    best = 0
-
-    for answer in known_answers(answers, cards_by_id):
-        if quiz.is_correct(answer):
-            current += 1
-            best = max(best, current)
-        else:
-            current = 0
-
-    return {"current": current, "best": best}
-
 def to_review(answers: list[dict], cards_by_id: dict, playable_ids: set, limit: int = 5) -> list[str]:
     """Отбирает карточки для работы над ошибками: те, где ошибались хоть раз.
 
