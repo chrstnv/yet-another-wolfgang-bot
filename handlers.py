@@ -10,9 +10,12 @@ import storage
 from data import GREETING, QUIZ_MODES, SECTION_REPLIES, STREAK_START
 from keyboards import MENU_KEYBOARD
 
-# Эффект «конфетти» 🎉. Идентификаторы стандартных эффектов одинаковы у всех,
-# получить их можно хендлером effect_id: отправить боту сообщение с эффектом.
+# Идентификаторы стандартных эффектов одинаковы у всех, получить их можно
+# хендлером effect_id: отправить боту сообщение с эффектом.
+# Конфетти достаётся безошибочному квизу, огонёк — рекорду серии:
+# достижения разные, и ощущаться должны по-разному.
 CONFETTI_EFFECT = "5046509860389126442"
+FIRE_EFFECT = "5104841245755180586"
 
 async def delete_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
     try:
@@ -172,7 +175,7 @@ async def finish_streak(update: Update, context: ContextTypes.DEFAULT_TYPE, leng
             [InlineKeyboardButton("🔥 Ещё серия", callback_data="streak")],
             [InlineKeyboardButton("🎲 Случайный квиз", callback_data="restart")],
         ]),
-        message_effect_id=CONFETTI_EFFECT if length > was_best else None,
+        message_effect_id=FIRE_EFFECT if length > was_best else None,
     )
 
     context.user_data.pop("quiz")
