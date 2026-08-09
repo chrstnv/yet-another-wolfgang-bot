@@ -22,7 +22,8 @@ QUIZ_EXPIRED = "Этот квиз уже закончился. Начните н
 PROGRESS_EMPTY = "📈 Пока пусто. Пройдите первый квиз — и здесь появится статистика."
 
 PROGRESS_TITLE = "<b>📈 Ваш прогресс</b>"
-PROGRESS_HEARD = "🎧 Услышано: <b>{seen}</b> из {total} произведений"
+PROGRESS_HEARD = "🎧 Услышано: <b>{seen}</b> {pieces}"
+PROGRESS_PIECES = ("произведение", "произведения", "произведений")
 PROGRESS_CORRECT = "✅ Верно: <b>{correct}</b> из {answered} — {accuracy}%"
 PROGRESS_RECORD = "🔥 Лучшая серия: <b>{record}</b> подряд"
 PROGRESS_WEAKEST = "<b>Пока даётся хуже всего</b>"

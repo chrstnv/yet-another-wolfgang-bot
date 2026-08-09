@@ -1,6 +1,24 @@
 import quiz
 from data import QUESTION, QUESTION_COUNTER, STREAK_COUNTER, STREAK_RECORD, STREAK_RESULTS, VERDICTS
 
+def plural(count: int, forms: tuple[str, str, str]) -> str:
+    """Форма слова при числе: одно произведение, два произведения, пять произведений.
+
+    Русское согласование смотрит на две последние цифры: одиннадцать — не один,
+    а сто двадцать четыре — как четыре.
+    """
+    tail = count % 100
+    if 11 <= tail <= 14:
+        return forms[2]
+
+    last = count % 10
+    if last == 1:
+        return forms[0]
+    if 2 <= last <= 4:
+        return forms[1]
+
+    return forms[2]
+
 def question_caption(session: dict) -> str:
     """Подпись к вопросу: сама формулировка и место в квизе.
 

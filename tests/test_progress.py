@@ -1,4 +1,5 @@
 import progress
+import pytest
 import quiz
 
 CARDS = [
@@ -248,3 +249,24 @@ def test_first_time_keeps_the_order_of_the_quiz():
     quiz.record_answer(session, "a", "a")
 
     assert progress.first_time(session) == ["c", "a"]
+
+PIECES = ("произведение", "произведения", "произведений")
+
+@pytest.mark.parametrize("count, expected", [
+    (1, "произведение"),
+    (2, "произведения"),
+    (4, "произведения"),
+    (5, "произведений"),
+    (0, "произведений"),
+    # одиннадцать-четырнадцать ведут себя не как один-четыре
+    (11, "произведений"),
+    (12, "произведений"),
+    (14, "произведений"),
+    (21, "произведение"),
+    (22, "произведения"),
+    (25, "произведений"),
+    (111, "произведений"),
+    (124, "произведения"),
+])
+def test_plural_picks_the_form_by_the_last_two_digits(count, expected):
+    assert progress.plural(count, PIECES) == expected
