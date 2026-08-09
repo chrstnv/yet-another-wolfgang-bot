@@ -108,6 +108,10 @@ def attribution(source: Path) -> dict[str, str]:
 # получается щелчком; четверти секунды хватает, чтобы это сгладить, и мало,
 # чтобы услышать саму подводку
 FADE_IN = 0.25
+# засечка в первые секунды почти всегда срезает тишину перед первой нотой —
+# музыка там начинается сама, и сглаживать нечего: подводка съест атаку.
+# Отличить это от настоящей середины можно только по расстоянию от начала
+FADE_AFTER = 20.0
 
 def cut_fragment(
     source: Path,
@@ -326,9 +330,7 @@ def main() -> int:
 
         with tempfile.TemporaryDirectory() as tmp:
             fragment = Path(tmp) / "fragment.mp3"
-            # с нуля запись начинается там же, где начинается музыка, и подводка
-            # ей не нужна; из середины произведения — обрывается на полуслове
-            fade_in = float(args.start) > 0
+            fade_in = float(args.start) >= FADE_AFTER
             cut_fragment(source, fragment, args.start, args.duration, fade_in=fade_in)
             print(
                 f"Фрагмент вырезан: {args.start}s + {args.duration}s"
