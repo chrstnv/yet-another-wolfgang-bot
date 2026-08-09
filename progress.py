@@ -1,5 +1,8 @@
 import quiz
-from data import QUESTION, QUESTION_COUNTER, STREAK_COUNTER, STREAK_RECORD, STREAK_RESULTS, VERDICTS
+from data import (
+    QUESTION, QUESTION_COUNTER, STREAK_COUNTER, STREAK_FRESH, STREAK_RECORD, STREAK_RESULTS,
+    STREAK_TITLE, STREAK_TITLE_ZERO, VERDICTS,
+)
 
 def question_caption(session: dict) -> str:
     """Подпись к вопросу: сама формулировка и место в квизе.
@@ -17,11 +20,11 @@ def question_caption(session: dict) -> str:
         QUESTION,
     )
 
-def streak_message(length: int, best: int) -> str:
-    """Итог серии, а следом прежний рекорд.
+def streak_message(length: int, best: int, fresh: list[str] = ()) -> str:
+    """Итог серии: счёт крупно, следом чем она кончилась, рекорд и находки.
 
-    Когда серия сама стала рекордом, вторая строчка не нужна: она повторяла бы
-    только что сказанное. Нулевому рекорду тоже нечего сообщать.
+    Когда серия сама стала рекордом, строчка о прежнем не нужна: она повторяла
+    бы только что сказанное. Нулевому рекорду тоже нечего сообщать.
     """
     if not length:
         key = "zero"
@@ -30,11 +33,19 @@ def streak_message(length: int, best: int) -> str:
     else:
         key = "some"
 
-    text = STREAK_RESULTS[key].format(length=length)
-    if key != "record" and best:
-        text += "\n" + STREAK_RECORD.format(record=best)
+    blocks = [
+        STREAK_TITLE.format(length=length) if length else STREAK_TITLE_ZERO,
+        STREAK_RESULTS[key].format(length=length),
+    ]
 
-    return text
+    if key != "record" and best:
+        blocks.append(STREAK_RECORD.format(record=best))
+
+    if fresh:
+        listed = "\n".join(f"• {title}" for title in fresh)
+        blocks.append(f"{STREAK_FRESH.format(count=len(fresh))}\n{listed}")
+
+    return "\n\n".join(blocks)
 
 def first_time(session: dict) -> list[str]:
     """Произведения, которые в этой сессии услышаны впервые.

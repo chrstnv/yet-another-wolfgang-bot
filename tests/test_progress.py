@@ -188,21 +188,39 @@ def test_streak_message_adds_the_previous_record():
     assert "3 подряд" in text
     assert "7" in text
 
-def test_streak_message_says_nothing_about_the_record_when_it_is_beaten():
+def test_streak_message_says_nothing_about_the_previous_record_when_it_is_beaten():
     text = progress.streak_message(9, best=7)
 
-    assert "рекорд" in text
+    assert "столько у вас ещё не было" in text
     assert "7" not in text
 
 def test_streak_message_skips_the_record_line_for_the_first_ever_run():
     text = progress.streak_message(0, best=0)
 
-    assert "\n" not in text
+    assert "рекорд" not in text
+
+def test_streak_message_lists_what_was_heard_for_the_first_time():
+    text = progress.streak_message(2, best=7, fresh=["Глинка — «Жаворонок»", "Балакирев — Тарантелла"])
+
+    assert "Впервые услышано" in text
+    assert "• Глинка — «Жаворонок»" in text
+    assert "• Балакирев — Тарантелла" in text
+
+def test_streak_message_says_nothing_about_findings_when_there_are_none():
+    assert "Впервые" not in progress.streak_message(2, best=7)
+
+def test_streak_message_puts_the_count_in_the_headline():
+    assert "<b>🔥 Серия: 5</b>" in progress.streak_message(5, best=7)
+
+def test_streak_message_headline_survives_a_run_of_nothing():
+    text = progress.streak_message(0, best=7)
+
+    assert "Серия: 0" not in text
 
 def test_streak_message_shows_the_record_after_a_zero_run():
     text = progress.streak_message(0, best=4)
 
-    assert "первом же" in text
+    assert "Первый же" in text
     assert "4" in text
 
 def test_question_caption_counts_questions_in_a_quiz():

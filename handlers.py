@@ -285,9 +285,17 @@ async def finish_streak(update: Update, context: ContextTypes.DEFAULT_TYPE, leng
     was_best = storage.best_streak(db, user_id)
     storage.save_streak_run(db, user_id, length)
 
+    library = context.bot_data["library"]
+    # названия идут в разметку, а в них живут кавычки и амперсанды
+    fresh = [
+        html.escape(library["by_id"][card_id]["title"])
+        for card_id in progress.first_time(context.user_data["quiz"])
+    ]
+
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=progress.streak_message(length, was_best),
+        text=progress.streak_message(length, was_best, fresh),
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🔥 Ещё серия", callback_data="streak")],
             [InlineKeyboardButton("🎲 Случайный квиз", callback_data="restart")],
