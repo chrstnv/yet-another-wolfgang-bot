@@ -9,7 +9,7 @@ import progress
 import quiz
 import storage
 from data import (
-    GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
+    CLOSE_BUTTON, GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
     PROGRESS_TITLE, PROGRESS_WEAKEST, QUIZ_EXPIRED, REVEAL_ANSWERS, SETTINGS,
     SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
@@ -155,9 +155,16 @@ def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
         InlineKeyboardMarkup([
             [InlineKeyboardButton(
                 "Выключить" if hidden else "Включить", callback_data="toggle-hide"
-            )]
+            )],
+            [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")],
         ]),
     )
+
+async def close_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    await remove_message(update, context, query.message.message_id)
 
 async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await remove_message(update, context, update.message.message_id)

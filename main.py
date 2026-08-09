@@ -11,7 +11,7 @@ import storage
 from handlers import (
     start, random_quiz, quiz_answer, audio_file_id, next_question,
     restart_quiz, show_progress, effect_id, chat_id, review_quiz,
-    streak_quiz, reveal_options, settings_screen, toggle_hide_options,
+    streak_quiz, reveal_options, settings_screen, toggle_hide_options, close_screen,
 )
 from keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL, STREAK_LABEL
 
@@ -67,6 +67,8 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(reveal_options, pattern=r"^reveal$"))
 
     app.add_handler(CallbackQueryHandler(toggle_hide_options, pattern=r"^toggle-hide$"))
+
+    app.add_handler(CallbackQueryHandler(close_screen, pattern=r"^close$"))
 
     app.add_handler(MessageHandler(filters.AUDIO, audio_file_id))
 
