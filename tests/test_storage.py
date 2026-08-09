@@ -51,3 +51,43 @@ def test_streak_runs_are_kept_per_user(conn):
     storage.save_streak_run(conn, 1, 9)
 
     assert storage.best_streak(conn, 2) == 0
+
+def test_sent_audio_is_remembered_and_ordered(conn):
+    storage.save_sent_audio(conn, 1, 100)
+    storage.save_sent_audio(conn, 1, 101)
+
+    assert storage.sent_audio(conn, 1) == [100, 101]
+
+def test_sent_audio_is_isolated_by_user(conn):
+    storage.save_sent_audio(conn, 1, 100)
+
+    assert storage.sent_audio(conn, 2) == []
+
+def test_forget_sent_audio_removes_one_message(conn):
+    storage.save_sent_audio(conn, 1, 100)
+    storage.save_sent_audio(conn, 1, 101)
+
+    storage.forget_sent_audio(conn, 1, 100)
+
+    assert storage.sent_audio(conn, 1) == [101]
+
+def test_forget_sent_audio_without_a_message_clears_the_user(conn):
+    storage.save_sent_audio(conn, 1, 100)
+    storage.save_sent_audio(conn, 2, 200)
+
+    storage.forget_sent_audio(conn, 1)
+
+    assert storage.sent_audio(conn, 1) == []
+    assert storage.sent_audio(conn, 2) == [200]
+
+def test_sent_audio_survives_a_restart(tmp_path):
+    path = str(tmp_path / "bot.db")
+    first = storage.connect(path)
+    storage.init_schema(first)
+    storage.save_sent_audio(first, 1, 100)
+    first.close()
+
+    second = storage.connect(path)
+    storage.init_schema(second)
+
+    assert storage.sent_audio(second, 1) == [100]

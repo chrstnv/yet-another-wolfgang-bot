@@ -17,6 +17,48 @@ def init_schema(conn: sqlite3.Connection) -> None:
         )
     """)
     init_streaks(conn)
+    init_sent_audio(conn)
+
+def init_sent_audio(conn: sqlite3.Connection) -> None:
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sent_audio (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER NOT NULL,
+            message_id INTEGER NOT NULL
+        )
+    """)
+
+def save_sent_audio(conn: sqlite3.Connection, user_id: int, message_id: int) -> None:
+    """Запоминает отправленное аудио.
+
+    Телеграм не умеет отвечать, какие сообщения бот присылал, а удалять их
+    он разрешает только по идентификатору. Держать список в памяти процесса
+    мало: после перезапуска бот забывает про чужие фрагменты, оставшиеся
+    в чате, и плеер снова начинает на них перескакивать.
+    """
+    conn.execute(
+        "INSERT INTO sent_audio (user_id, message_id) VALUES (?, ?)",
+        (user_id, message_id),
+    )
+    conn.commit()
+
+def sent_audio(conn: sqlite3.Connection, user_id: int) -> list[int]:
+    rows = conn.execute(
+        "SELECT message_id FROM sent_audio WHERE user_id = ? ORDER BY id",
+        (user_id,),
+    ).fetchall()
+
+    return [row["message_id"] for row in rows]
+
+def forget_sent_audio(conn: sqlite3.Connection, user_id: int, message_id: int | None = None) -> None:
+    if message_id is None:
+        conn.execute("DELETE FROM sent_audio WHERE user_id = ?", (user_id,))
+    else:
+        conn.execute(
+            "DELETE FROM sent_audio WHERE user_id = ? AND message_id = ?",
+            (user_id, message_id),
+        )
+    conn.commit()
 
 def init_streaks(conn: sqlite3.Connection) -> None:
     conn.execute("""

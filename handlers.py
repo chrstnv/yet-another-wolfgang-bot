@@ -23,9 +23,7 @@ async def delete_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, mess
     except TelegramError:
         pass
 
-    sent = context.user_data.get("audio_messages")
-    if sent and message_id in sent:
-        sent.remove(message_id)
+    storage.forget_sent_audio(context.bot_data["db"], update.effective_user.id, message_id)
 
 async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Убирает из чата все аудиосообщения, что бот успел прислать.
@@ -33,11 +31,18 @@ async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     Аудио в чате складывается в плейлист: стоит удалить играющее сообщение,
     и клиент перескакивает на соседнее. Если от брошенной сессии остались
     фрагменты, новый квиз начинается с чужой музыки.
+
+    Список берётся из базы, а не из памяти: сессию бросают и после
+    перезапуска бота, а сообщения в чате остаются.
     """
-    for message_id in list(context.user_data.get("audio_messages", [])):
+    db = context.bot_data["db"]
+    user_id = update.effective_user.id
+
+    for message_id in storage.sent_audio(db, user_id):
         await delete_screen(update, context, message_id)
 
-    context.user_data["audio_messages"] = []
+    # что не удалилось, то старше двух суток и уже неудаляемо: держать не за чем
+    storage.forget_sent_audio(db, user_id)
 
 async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await clear_audio(update, context)
@@ -70,7 +75,9 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         performer=quiz.recording_of(card, fragment)["performer"],
     )
     session["message_id"] = message.message_id
-    context.user_data.setdefault("audio_messages", []).append(message.message_id)
+    storage.save_sent_audio(
+        context.bot_data["db"], update.effective_user.id, message.message_id
+    )
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
