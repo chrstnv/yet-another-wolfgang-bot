@@ -36,15 +36,6 @@ def streak_message(length: int, best: int) -> str:
 
     return text
 
-def bar(done: int, total: int, width: int = 10) -> str:
-    """Полоска вида ▓▓▓░░░░░░░ — доля читается быстрее, чем два числа."""
-    if total <= 0:
-        return "░" * width
-
-    filled = round(width * done / total)
-
-    return "▓" * filled + "░" * (width - filled)
-
 def first_time(session: dict) -> list[str]:
     """Произведения, которые в этой сессии услышаны впервые.
 

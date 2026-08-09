@@ -225,14 +225,6 @@ def test_question_caption_says_nothing_on_the_first_streak_question():
 
     assert "\n" not in progress.question_caption(session)
 
-def test_bar_fills_in_proportion():
-    assert progress.bar(0, 10) == "░" * 10
-    assert progress.bar(5, 10) == "▓▓▓▓▓░░░░░"
-    assert progress.bar(10, 10) == "▓" * 10
-
-def test_bar_survives_an_empty_library():
-    assert progress.bar(0, 0) == "░" * 10
-
 def test_first_time_lists_only_unheard_cards():
     session = quiz.session_for(["a", "b"])
     session["seen"] = {"a"}

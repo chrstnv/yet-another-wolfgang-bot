@@ -362,9 +362,7 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "",
         f"Ответов: {stats['total']}",
         f"Верно: {stats['correct']} — это {stats['accuracy']}%",
-        "",
-        f"Услышано {stats['cards_seen']} из {len(library['playable'])} произведений",
-        progress.bar(stats["cards_seen"], len(library["playable"])),
+        f"Произведений услышано: {stats['cards_seen']} из {len(library['playable'])}",
     ]
 
     if record:
