@@ -250,9 +250,11 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
         recording = {"performer": args.performer, "source": args.source}
 
         existing_recording = card.get("recording")
-        if existing_recording and existing_recording != recording:
+        if args.append and existing_recording and existing_recording != recording:
             # части одного произведения бывают у разных исполнителей —
-            # тогда атрибуция принадлежит фрагменту, а не карточке
+            # тогда атрибуция принадлежит фрагменту, а не карточке.
+            # Без --append прежние фрагменты стираются, и держать на карточке
+            # кредит исчезнувшей записи нельзя: это была бы ложная атрибуция
             fragment["recording"] = recording
         else:
             card["recording"] = recording
