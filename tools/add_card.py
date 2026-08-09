@@ -64,7 +64,14 @@ def audio_codec(source: Path) -> str:
 
     return result.stdout.strip()
 
-ATTRIBUTION_TAGS = ("artist", "comment", "copyright", "license")
+# Open Audio License прямо запрещает менять теги с атрибуцией, так что
+# переносим их все, а не только artist: у части записей солист, дирижёр
+# и оркестр расписаны по отдельным полям. Тег composer не берём: лицензия
+# защищает исполнителя, а фамилия автора в файле — это подсказка к ответу
+ATTRIBUTION_TAGS = (
+    "artist", "album_artist", "performer", "conductor", "ensemble",
+    "comment", "copyright", "license",
+)
 
 def attribution(source: Path) -> dict[str, str]:
     """Достаёт теги с атрибуцией, где бы они ни лежали.
