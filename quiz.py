@@ -18,7 +18,14 @@ def last_answer_was_wrong(session: dict) -> bool:
     return bool(answers) and not is_correct(answers[-1])
 
 def start_session(cards: list[dict], length: int = QUIZ_LENGTH) -> dict:
+    """Десять случайных карточек, выстроенных от лёгких к трудным.
+
+    Набор случайный, а порядок нет: начинать с «Полёта валькирий» и заканчивать
+    сонатой Скарлатти приятнее, чем наоборот. Карточки без проставленной
+    сложности уходят в конец, а не притворяются самыми лёгкими.
+    """
     selected = random.sample(cards, k=min(length, len(cards)))
+    selected.sort(key=lambda card: (card.get("difficulty") is None, card.get("difficulty") or 0))
 
     return session_for([card["id"] for card in selected])
 

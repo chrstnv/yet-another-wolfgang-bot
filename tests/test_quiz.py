@@ -238,3 +238,14 @@ def test_streak_queue_leaves_cards_without_difficulty_to_the_tail():
     queue = quiz.streak_queue(GRADED, step=2)
 
     assert "unlabelled" in queue[4:]
+
+def test_start_session_orders_by_difficulty():
+    queue = quiz.start_session(GRADED, length=len(GRADED))["queue"]
+    graded = [card_id for card_id in queue if card_id != "unlabelled"]
+
+    assert graded == sorted(graded, key=lambda card_id: 1 if card_id.startswith("easy") else 5)
+
+def test_start_session_puts_unlabelled_cards_last():
+    queue = quiz.start_session(GRADED, length=len(GRADED))["queue"]
+
+    assert queue[-1] == "unlabelled"
