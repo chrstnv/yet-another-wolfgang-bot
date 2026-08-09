@@ -93,6 +93,29 @@ def cut_fragment(source: Path, target: Path, start: str, duration: str) -> None:
         check=True,
     )
 
+def leading_silence(path: Path) -> float:
+    """Сколько секунд тишины в начале фрагмента.
+
+    Записи нередко начинаются с паузы, и фрагмент открывается пустотой —
+    на слух это ловилось только после заливки.
+    """
+    result = subprocess.run(
+        [
+            "ffmpeg", "-hide_banner", "-i", str(path),
+            "-af", "silencedetect=noise=-50dB:d=0.3",
+            "-f", "null", "-",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    for line in result.stderr.splitlines():
+        if "silence_start: 0" in line:
+            for following in result.stderr.splitlines():
+                if "silence_end" in following:
+                    return float(following.split("silence_end:")[1].split("|")[0])
+    return 0.0
+
 async def upload_once(path: Path, performer: str | None) -> str:
     token = os.getenv("BOT_TOKEN")
     chat_id = os.getenv("ADMIN_CHAT_ID")
@@ -204,6 +227,14 @@ def main() -> int:
             fragment = Path(tmp) / "fragment.mp3"
             cut_fragment(source, fragment, args.start, args.duration)
             print(f"Фрагмент вырезан: {args.start}s + {args.duration}s")
+
+            pause = leading_silence(fragment)
+            if pause >= 1.0:
+                start = float(args.start) + pause
+                print(
+                    f"Предупреждение: фрагмент открывается тишиной ({pause:.1f}с). "
+                    f"Возможно, стоит перерезать с --start {start:.0f}"
+                )
             file_id = asyncio.run(upload(fragment, args.performer))
             print(f"Загружено в Telegram: {file_id}")
     else:
