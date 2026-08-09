@@ -43,7 +43,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--performer", help="исполнитель записи")
     parser.add_argument("--source", help="источник записи")
     parser.add_argument("--distractor", action="append", default=[], help="предпочтительная ловушка, можно повторять")
-    parser.add_argument("--gain", type=float, help="подъём громкости в дБ вместо автоматического")
     parser.add_argument("--update", action="store_true", help="перезаписать существующую карточку")
     parser.add_argument("--append", action="store_true", help="добавить ещё один фрагмент, не заменяя прежние")
 
@@ -259,9 +258,6 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
             "duration": args.duration,
             "audio_file_id": file_id,
         }
-        # подъём, выставленный на слух, автоматика заново не угадает
-        if args.gain is not None:
-            fragment["gain"] = args.gain
         recording = {"performer": args.performer, "source": args.source}
 
         existing_recording = card.get("recording")
@@ -317,23 +313,17 @@ def main() -> int:
 
             # записи приходят с очень разным уровнем, и тихие тонут на телефоне
             # рядом с громкими; поднимаем по пику, чтобы не трогать динамику внутри
-            if args.gain is not None:
-                # автоматика ровняет по пику и не слышит, что вместе с музыкой
-                # растёт зал; на таких записях уровень выставляется на слух
-                print(f"Подъём задан вручную: {args.gain:+.1f} дБ")
-                cut_fragment(source, fragment, args.start, args.duration, gain=args.gain)
-            else:
-                peak = peak_level(fragment)
-                if peak < QUIET_PEAK:
-                    gain = min(TARGET_PEAK - peak, MAX_GAIN)
-                    print(f"Запись тихая (пик {peak:.1f} дБ), поднимаю на {gain:.1f} дБ")
-                    if TARGET_PEAK - peak > MAX_GAIN:
-                        print(
-                            f"  до уровня библиотеки не хватает {TARGET_PEAK - peak - MAX_GAIN:.1f} дБ, "
-                            f"но выше поднимать нельзя: вылезет шум. Возможно, стоит взять "
-                            f"фрагмент из более громкого места"
-                        )
-                    cut_fragment(source, fragment, args.start, args.duration, gain=gain)
+            peak = peak_level(fragment)
+            if peak < QUIET_PEAK:
+                gain = min(TARGET_PEAK - peak, MAX_GAIN)
+                print(f"Запись тихая (пик {peak:.1f} дБ), поднимаю на {gain:.1f} дБ")
+                if TARGET_PEAK - peak > MAX_GAIN:
+                    print(
+                        f"  до уровня библиотеки не хватает {TARGET_PEAK - peak - MAX_GAIN:.1f} дБ, "
+                        f"но выше поднимать нельзя: вылезет шум. Возможно, стоит взять "
+                        f"фрагмент из более громкого места"
+                    )
+                cut_fragment(source, fragment, args.start, args.duration, gain=gain)
 
             pause = leading_silence(fragment)
             if pause >= 1.0:
