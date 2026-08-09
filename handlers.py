@@ -10,8 +10,8 @@ import quiz
 import storage
 from data import (
     GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
-    PROGRESS_TITLE, PROGRESS_WEAKEST, QUIZ_EXPIRED, RESET_BUTTON, RESET_DONE,
-    REVEAL_ANSWERS, SETTINGS, SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
+    PROGRESS_TITLE, PROGRESS_WEAKEST, QUIZ_EXPIRED, REVEAL_ANSWERS, SETTINGS,
+    SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
 from keyboards import MENU_KEYBOARD
 
@@ -155,8 +155,7 @@ def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
         InlineKeyboardMarkup([
             [InlineKeyboardButton(
                 "Выключить" if hidden else "Включить", callback_data="toggle-hide"
-            )],
-            [InlineKeyboardButton(RESET_BUTTON, callback_data="reset")],
+            )]
         ]),
     )
 
@@ -182,23 +181,6 @@ async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     text, keyboard = settings_view(hidden)
     await query.edit_message_text(text, reply_markup=keyboard)
-
-async def reset_bot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Возвращает бота в исходное состояние: закрывает брошенный квиз и убирает
-    его следы из чата. Ответы и рекорды не трогает — они в базе и к состоянию
-    диалога отношения не имеют.
-    """
-    query = update.callback_query
-    await query.answer()
-
-    await clear_audio(update, context)
-    context.user_data.pop("quiz", None)
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=RESET_DONE,
-        reply_markup=MENU_KEYBOARD,
-    )
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
