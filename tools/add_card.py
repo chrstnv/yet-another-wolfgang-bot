@@ -246,7 +246,14 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
         card["facts"] = args.fact
 
     if file_id:
-        fragment = {"name": args.fragment or args.title, "audio_file_id": file_id}
+        # засечку и длительность храним рядом с фрагментом: без них перерезать
+        # его потом можно только по памяти, а память — плохое место для секунд
+        fragment = {
+            "name": args.fragment or args.title,
+            "start": args.start,
+            "duration": args.duration,
+            "audio_file_id": file_id,
+        }
         recording = {"performer": args.performer, "source": args.source}
 
         existing_recording = card.get("recording")
