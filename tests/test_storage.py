@@ -91,3 +91,26 @@ def test_sent_audio_survives_a_restart(tmp_path):
     storage.init_schema(second)
 
     assert storage.sent_audio(second, 1) == [100]
+
+def test_hide_options_is_off_until_it_is_set(conn):
+    assert storage.hide_options(conn, 1) is False
+
+def test_hide_options_can_be_switched_both_ways(conn):
+    storage.set_hide_options(conn, 1, True)
+    assert storage.hide_options(conn, 1) is True
+
+    storage.set_hide_options(conn, 1, False)
+    assert storage.hide_options(conn, 1) is False
+
+def test_hide_options_is_isolated_by_user(conn):
+    storage.set_hide_options(conn, 1, True)
+
+    assert storage.hide_options(conn, 2) is False
+
+def test_hide_options_keeps_one_row_per_user(conn):
+    storage.set_hide_options(conn, 1, True)
+    storage.set_hide_options(conn, 1, False)
+    storage.set_hide_options(conn, 1, True)
+
+    rows = conn.execute("SELECT COUNT(*) AS n FROM settings WHERE user_id = 1").fetchone()
+    assert rows["n"] == 1

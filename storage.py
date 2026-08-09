@@ -18,6 +18,36 @@ def init_schema(conn: sqlite3.Connection) -> None:
     """)
     init_streaks(conn)
     init_sent_audio(conn)
+    init_settings(conn)
+
+def init_settings(conn: sqlite3.Connection) -> None:
+    """Настройки — единственное в базе, что хранит состояние, а не события.
+
+    Ответы и серии копятся как факты, из них считается всё остальное.
+    А переключатель — это именно текущее положение тумблера, и накапливать
+    его историю незачем.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            user_id      INTEGER PRIMARY KEY,
+            hide_options INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
+def hide_options(conn: sqlite3.Connection, user_id: int) -> bool:
+    row = conn.execute(
+        "SELECT hide_options FROM settings WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+
+    return bool(row["hide_options"]) if row else False
+
+def set_hide_options(conn: sqlite3.Connection, user_id: int, hidden: bool) -> None:
+    conn.execute("""
+        INSERT INTO settings (user_id, hide_options) VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET hide_options = excluded.hide_options
+    """, (user_id, int(hidden)))
+    conn.commit()
 
 def init_sent_audio(conn: sqlite3.Connection) -> None:
     conn.execute("""

@@ -1,9 +1,20 @@
-from keyboards import COLLECTION_LABEL, SETTINGS_LABEL
+from keyboards import COLLECTION_LABEL
 
 SECTION_REPLIES = {
     COLLECTION_LABEL: "❤️ Коллекция скоро появится!",
-    SETTINGS_LABEL: "⚙️ Настройки скоро появятся!",
 }
+
+SETTINGS = (
+    "⚙️ Настройки\n\n"
+    "Скрывать варианты ответа: {state}\n\n"
+    "Когда включено, бот сначала присылает только фрагмент. "
+    "Варианты открываются кнопкой — чтобы сперва подумать самому."
+)
+
+SETTINGS_ON = "включено"
+SETTINGS_OFF = "выключено"
+
+REVEAL_ANSWERS = "👀 Показать варианты"
 
 GREETING = (
     "Привет! Здесь учатся узнавать классику на слух.\n\n"

@@ -7,7 +7,10 @@ from telegram.ext import ContextTypes
 import progress
 import quiz
 import storage
-from data import GREETING, QUIZ_MODES, SECTION_REPLIES, STREAK_START
+from data import (
+    GREETING, QUIZ_MODES, REVEAL_ANSWERS, SECTION_REPLIES,
+    SETTINGS, SETTINGS_OFF, SETTINGS_ON, STREAK_START,
+)
 from keyboards import MENU_KEYBOARD
 
 # Идентификаторы стандартных эффектов одинаковы у всех, получить их можно
@@ -56,6 +59,12 @@ async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     await send_question(update, context)
 
+def options_keyboard(option_ids: list[str], by_id: dict) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(by_id[option_id]["title"], callback_data=f"answer:{option_id}")]
+        for option_id in option_ids
+    ])
+
 async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = context.user_data["quiz"]
     library = context.bot_data["library"]
@@ -64,10 +73,16 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     session["fragment"] = fragment["name"]
     session["recording"] = quiz.recording_of(card, fragment)
 
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(option["title"], callback_data=f"answer:{option['id']}")]
-        for option in quiz.build_options(card, library["cards"])
-    ])
+    # варианты выбираются один раз: если открывать их кнопкой, набор должен
+    # остаться тем же, а не перетасоваться заново
+    session["options"] = [option["id"] for option in quiz.build_options(card, library["cards"])]
+
+    hidden = storage.hide_options(context.bot_data["db"], update.effective_user.id)
+    keyboard = (
+        InlineKeyboardMarkup([[InlineKeyboardButton(REVEAL_ANSWERS, callback_data="reveal")]])
+        if hidden
+        else options_keyboard(session["options"], library["by_id"])
+    )
 
     message = await context.bot.send_audio(
         chat_id=update.effective_chat.id,
@@ -81,6 +96,47 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     storage.save_sent_audio(
         context.bot_data["db"], update.effective_user.id, message.message_id
     )
+
+async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    session = context.user_data.get("quiz")
+    if not session or query.message.message_id != session["message_id"]:
+        return
+
+    await query.edit_message_reply_markup(
+        reply_markup=options_keyboard(session["options"], context.bot_data["library"]["by_id"])
+    )
+
+def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
+    return (
+        SETTINGS.format(state=SETTINGS_ON if hidden else SETTINGS_OFF),
+        InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                "Выключить" if hidden else "Включить", callback_data="toggle-hide"
+            )]
+        ]),
+    )
+
+async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    hidden = storage.hide_options(context.bot_data["db"], update.effective_user.id)
+    text, keyboard = settings_view(hidden)
+
+    await update.message.reply_text(text, reply_markup=keyboard)
+
+async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    db = context.bot_data["db"]
+    user_id = update.effective_user.id
+
+    hidden = not storage.hide_options(db, user_id)
+    storage.set_hide_options(db, user_id, hidden)
+
+    text, keyboard = settings_view(hidden)
+    await query.edit_message_text(text, reply_markup=keyboard)
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
