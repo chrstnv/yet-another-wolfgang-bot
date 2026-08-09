@@ -358,9 +358,8 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     record = storage.best_streak(context.bot_data["db"], update.effective_user.id)
 
-    lines = [
-        PROGRESS_TITLE,
-        "",
+    # каждая строчка сводки — про своё, и вплотную они читаются как список
+    counters = [
         PROGRESS_HEARD.format(seen=stats["cards_seen"], total=len(library["playable"])),
         PROGRESS_CORRECT.format(
             correct=stats["correct"], answered=stats["total"], accuracy=stats["accuracy"]
@@ -368,7 +367,9 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     ]
 
     if record:
-        lines.append(PROGRESS_RECORD.format(record=record))
+        counters.append(PROGRESS_RECORD.format(record=record))
+
+    lines = [PROGRESS_TITLE, "", "\n\n".join(counters)]
 
     missed = progress.weakest(answers, library["by_id"])
     if missed:
