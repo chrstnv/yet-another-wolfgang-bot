@@ -66,6 +66,10 @@ async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # что не удалилось, то старше двух суток и уже неудаляемо: держать не за чем
     storage.forget_sent_audio(db, user_id)
 
+def remember_seen(update: Update, context: ContextTypes.DEFAULT_TYPE, session: dict) -> None:
+    answers = storage.get_answers(context.bot_data["db"], update.effective_user.id)
+    session["seen"] = {answer["card_id"] for answer in answers}
+
 async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message:
         await remove_message(update, context, update.message.message_id)
@@ -74,6 +78,7 @@ async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     session = quiz.start_session(context.bot_data["library"]["playable"])
     session["message_id"] = None
+    remember_seen(update, context, session)
     context.user_data["quiz"] = session
 
     await send_question(update, context)
@@ -198,6 +203,14 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         for title, is_correct in quiz.breakdown(session, context.bot_data["library"]["by_id"])
     ]
 
+    fresh = [
+        context.bot_data["library"]["by_id"][card_id]["title"]
+        for card_id in progress.first_time(session)
+    ]
+    if fresh:
+        answers_list += ["", f"Впервые услышано: {len(fresh)}"]
+        answers_list += [f"• {title}" for title in fresh]
+
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=(
@@ -234,6 +247,7 @@ async def review_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     session = quiz.session_for(card_ids)
     session["message_id"] = None
+    remember_seen(update, context, session)
     context.user_data["quiz"] = session
 
     await send_question(update, context)
@@ -267,6 +281,7 @@ async def streak_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     playable = context.bot_data["library"]["playable"]
     session = quiz.session_for(quiz.streak_queue(playable), mode=quiz.STREAK)
     session["message_id"] = None
+    remember_seen(update, context, session)
     context.user_data["quiz"] = session
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=STREAK_START)
@@ -297,7 +312,8 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if session.get("mode") == quiz.STREAK:
             result += f" 🔥 {quiz.score(session)} подряд."
     else:
-        result = "❌ Неправильно."
+        chosen = context.bot_data["library"]["by_id"][chosen_id]["title"]
+        result = f"❌ Неправильно. Вы выбрали «{chosen}»."
 
     fact = random.choice(card["facts"])
 
@@ -346,7 +362,9 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "",
         f"Ответов: {stats['total']}",
         f"Верно: {stats['correct']} — это {stats['accuracy']}%",
-        f"Произведений услышано: {stats['cards_seen']} из {len(library['playable'])}",
+        "",
+        f"Услышано {stats['cards_seen']} из {len(library['playable'])} произведений",
+        progress.bar(stats["cards_seen"], len(library["playable"])),
     ]
 
     if record:

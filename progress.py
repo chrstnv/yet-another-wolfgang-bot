@@ -36,6 +36,31 @@ def streak_message(length: int, best: int) -> str:
 
     return text
 
+def bar(done: int, total: int, width: int = 10) -> str:
+    """Полоска вида ▓▓▓░░░░░░░ — доля читается быстрее, чем два числа."""
+    if total <= 0:
+        return "░" * width
+
+    filled = round(width * done / total)
+
+    return "▓" * filled + "░" * (width - filled)
+
+def first_time(session: dict) -> list[str]:
+    """Произведения, которые в этой сессии услышаны впервые.
+
+    Что человек слышал раньше, session узнаёт на старте: к концу квиза
+    ответы уже лежат в базе, и отличить новое от старого по ней нельзя.
+    """
+    seen = session.get("seen") or set()
+
+    fresh = []
+    for answer in session["answers"]:
+        card_id = answer["card_id"]
+        if card_id not in seen and card_id not in fresh:
+            fresh.append(card_id)
+
+    return fresh
+
 def verdict(correct: int, total: int) -> str:
     if correct == total:
         key = "perfect"
