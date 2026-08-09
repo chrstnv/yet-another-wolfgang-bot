@@ -40,6 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--duration", default="35", help="длительность фрагмента (по умолчанию 35)")
     parser.add_argument("--fragment", help="название звучащего эпизода")
     parser.add_argument("--fact", action="append", default=[], help="факт, можно повторять")
+    parser.add_argument("--description", help="одна-две фразы контекста, показываются всегда")
     parser.add_argument("--performer", help="исполнитель записи")
     parser.add_argument("--source", help="источник записи")
     parser.add_argument("--distractor", action="append", default=[], help="предпочтительная ловушка, можно повторять")
@@ -271,9 +272,12 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
     if args.distractor:
         card["distractors"] = args.distractor
 
-    # факты и название фрагмента можно править отдельно от записи
+    # факты, описание и название фрагмента можно править отдельно от записи
     if args.fact:
         card["facts"] = args.fact
+
+    if args.description:
+        card["description"] = args.description
 
     if file_id:
         # засечку и длительность храним рядом с фрагментом: без них перерезать

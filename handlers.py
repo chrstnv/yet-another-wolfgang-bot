@@ -356,10 +356,15 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if session["fragment"] not in card["title"]:
         fragment_line = f"Фрагмент: «{session['fragment']}».\n"
 
+    # описание показывается всегда, если написано: факты выпадают по одному
+    # и случайно, а контекст нужен каждый раз
+    description = card.get("description")
+    description_line = f"\n{description}\n" if description else ""
+
     await query.edit_message_caption(
         caption=(
             f"{result}\n\nЭто {naming}.\n"
-            f"{fragment_line}\n"
+            f"{fragment_line}{description_line}\n"
             f"💡 {fact}\n\n"
             f"🎧 Запись: {recording['performer']} — {recording['source']}"
         ),
