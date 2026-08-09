@@ -10,8 +10,8 @@ import quiz
 import storage
 from data import (
     GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
-    PROGRESS_TITLE, PROGRESS_WEAKEST, REVEAL_ANSWERS, SETTINGS, SETTINGS_OFF,
-    SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
+    PROGRESS_TITLE, PROGRESS_WEAKEST, QUIZ_EXPIRED, REVEAL_ANSWERS, SETTINGS,
+    SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
 from keyboards import MENU_KEYBOARD
 
@@ -124,12 +124,25 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context.bot_data["db"], update.effective_user.id, message.message_id
     )
 
+async def expire(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Гасит кнопки под вопросом, от которого не осталось сессии.
+
+    Бывает, когда квиз бросили очень давно или состояние потерялось: молча
+    ничего не делать хуже всего — кнопки выглядят сломанными.
+    """
+    query = update.callback_query
+    await query.answer(QUIZ_EXPIRED, show_alert=True)
+    await query.edit_message_reply_markup(reply_markup=None)
+
 async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
 
     session = context.user_data.get("quiz")
-    if not session or query.message.message_id != session["message_id"]:
+    if not session:
+        await expire(update, context)
+        return
+    if query.message.message_id != session["message_id"]:
         return
 
     await query.edit_message_reply_markup(
@@ -174,7 +187,10 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await query.answer()
 
     session = context.user_data.get("quiz")
-    if not session or query.message.message_id != session["message_id"]:
+    if not session:
+        await expire(update, context)
+        return
+    if query.message.message_id != session["message_id"]:
         return
 
     await delete_screen(update, context, session["message_id"])
@@ -300,7 +316,10 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await query.answer()
 
     session = context.user_data.get("quiz")
-    if not session or quiz.is_answered(session):
+    if not session:
+        await expire(update, context)
+        return
+    if quiz.is_answered(session):
         return
 
     _, chosen_id = query.data.split(":")

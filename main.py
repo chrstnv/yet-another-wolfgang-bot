@@ -1,7 +1,10 @@
 import os
 
 from dotenv import load_dotenv
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler
+from telegram.ext import (
+    Application, CallbackQueryHandler, CommandHandler, MessageHandler,
+    PersistenceInput, PicklePersistence, filters,
+)
 
 import content
 import storage
@@ -15,7 +18,21 @@ from keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_
 load_dotenv()
 
 def main() -> None:
-    app = Application.builder().token(os.getenv("BOT_TOKEN")).build()
+    # квиз живёт в user_data, а он по умолчанию гибнет вместе с процессом:
+    # после перезапуска у висящего вопроса переставали работать кнопки.
+    # bot_data не сохраняем — там соединение с базой и библиотека,
+    # их незачем и невозможно складывать в файл
+    persistence = PicklePersistence(
+        filepath=os.getenv("STATE_PATH", "state.pickle"),
+        store_data=PersistenceInput(bot_data=False, chat_data=False, callback_data=False),
+    )
+
+    app = (
+        Application.builder()
+        .token(os.getenv("BOT_TOKEN"))
+        .persistence(persistence)
+        .build()
+    )
 
     db = storage.connect(os.getenv("DB_PATH", "bot.db"))
     storage.init_schema(db)
