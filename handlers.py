@@ -9,8 +9,8 @@ import progress
 import quiz
 import storage
 from data import (
-    CLOSE_BUTTON, GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_PIECES,
-    PROGRESS_RECORD, PROGRESS_TITLE, PROGRESS_WEAKEST, QUIZ_EXPIRED, REVEAL_ANSWERS, SETTINGS,
+    CLOSE_BUTTON, GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
+    PROGRESS_TITLE, PROGRESS_WEAKEST, QUIZ_EXPIRED, REVEAL_ANSWERS, SETTINGS,
     SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
 from keyboards import MENU_KEYBOARD
@@ -396,10 +396,7 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # каждая строчка сводки — про своё, и вплотную они читаются как список
     counters = [
-        PROGRESS_HEARD.format(
-            seen=stats["cards_seen"],
-            pieces=progress.plural(stats["cards_seen"], PROGRESS_PIECES),
-        ),
+        PROGRESS_HEARD.format(seen=stats["cards_seen"]),
         PROGRESS_CORRECT.format(
             correct=stats["correct"], answered=stats["total"], accuracy=stats["accuracy"]
         ),
