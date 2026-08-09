@@ -64,6 +64,39 @@ def audio_codec(source: Path) -> str:
 
     return result.stdout.strip()
 
+ATTRIBUTION_TAGS = ("artist", "comment", "copyright", "license")
+
+def attribution(source: Path) -> dict[str, str]:
+    """Достаёт теги с атрибуцией, где бы они ни лежали.
+
+    В mp3 теги хранятся на контейнере, а в ogg и opus — на аудиопотоке.
+    ffmpeg по умолчанию переносит только первые, поэтому при перекодировании
+    ogg строчка вроде «(O) EFF Open Audio License» пропадала молча.
+    """
+    found: dict[str, str] = {}
+
+    for entries in ("stream_tags", "format_tags"):
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-select_streams", "a:0",
+                "-show_entries", entries,
+                "-of", "default=nw=1",
+                str(source),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        for line in result.stdout.splitlines():
+            name, _, value = line.removeprefix("TAG:").partition("=")
+            # теги контейнера идут вторыми и перекрывают потоковые:
+            # для mp3 они и есть единственный источник правды
+            if name.lower() in ATTRIBUTION_TAGS and value.strip():
+                found[name.lower()] = value.strip()
+
+    return found
+
 def cut_fragment(source: Path, target: Path, start: str, duration: str) -> None:
     """Вырезает кусок, снимает обложку и главы, ставит нейтральный заголовок.
 
@@ -79,12 +112,17 @@ def cut_fragment(source: Path, target: Path, start: str, duration: str) -> None:
     if codec != "mp3":
         print(f"Исходник в формате {codec}, перекодирую в mp3")
 
+    credits = attribution(source)
+    if credits:
+        print(f"Атрибуция в файле: {', '.join(f'{k}={v}' for k, v in credits.items())}")
+
     subprocess.run(
         [
             "ffmpeg", "-y", "-loglevel", "error",
             "-ss", start, "-t", duration,
             "-i", str(source),
             "-vn", "-map_chapters", "-1",
+            *[arg for name, value in credits.items() for arg in ("-metadata", f"{name}={value}")],
             "-metadata", "title=Фрагмент",
             "-metadata", "album=",
             *encoding,
