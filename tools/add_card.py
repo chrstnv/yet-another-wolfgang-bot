@@ -104,7 +104,19 @@ def attribution(source: Path) -> dict[str, str]:
 
     return found
 
-def cut_fragment(source: Path, target: Path, start: str, duration: str, gain: float = 0.0) -> None:
+# фрагмент из середины произведения обрывает музыку на полуслове, и вход
+# получается щелчком; четверти секунды хватает, чтобы это сгладить, и мало,
+# чтобы услышать саму подводку
+FADE_IN = 0.25
+
+def cut_fragment(
+    source: Path,
+    target: Path,
+    start: str,
+    duration: str,
+    gain: float = 0.0,
+    fade_in: bool = False,
+) -> None:
     """Вырезает кусок, снимает обложку и главы, ставит нейтральный заголовок.
 
     Метаданные не стираются целиком: artist, comment и copyright несут атрибуцию
@@ -114,8 +126,14 @@ def cut_fragment(source: Path, target: Path, start: str, duration: str, gain: fl
     приходится перекодировать, потоковое копирование на них не работает.
     Подъём громкости — тоже: фильтр применить к скопированному потоку нельзя.
     """
+    filters = []
+    if fade_in:
+        filters.append(f"afade=t=in:st=0:d={FADE_IN}")
+    if gain:
+        filters.append(f"volume={gain:.1f}dB")
+
     codec = audio_codec(source)
-    reencode = codec != "mp3" or gain
+    reencode = codec != "mp3" or filters
     encoding = ["-codec:a", "libmp3lame", "-q:a", "2"] if reencode else ["-codec", "copy"]
 
     if codec != "mp3":
@@ -131,7 +149,7 @@ def cut_fragment(source: Path, target: Path, start: str, duration: str, gain: fl
             "-ss", start, "-t", duration,
             "-i", str(source),
             "-vn", "-map_chapters", "-1",
-            *(["-af", f"volume={gain:.1f}dB"] if gain else []),
+            *(["-af", ",".join(filters)] if filters else []),
             *[arg for name, value in credits.items() for arg in ("-metadata", f"{name}={value}")],
             "-metadata", "title=Фрагмент",
             "-metadata", "album=",
@@ -308,8 +326,14 @@ def main() -> int:
 
         with tempfile.TemporaryDirectory() as tmp:
             fragment = Path(tmp) / "fragment.mp3"
-            cut_fragment(source, fragment, args.start, args.duration)
-            print(f"Фрагмент вырезан: {args.start}s + {args.duration}s")
+            # с нуля запись начинается там же, где начинается музыка, и подводка
+            # ей не нужна; из середины произведения — обрывается на полуслове
+            fade_in = float(args.start) > 0
+            cut_fragment(source, fragment, args.start, args.duration, fade_in=fade_in)
+            print(
+                f"Фрагмент вырезан: {args.start}s + {args.duration}s"
+                + (f", вход сглажен за {FADE_IN}с" if fade_in else "")
+            )
 
             # записи приходят с очень разным уровнем, и тихие тонут на телефоне
             # рядом с громкими; поднимаем по пику, чтобы не трогать динамику внутри
@@ -323,7 +347,7 @@ def main() -> int:
                         f"но выше поднимать нельзя: вылезет шум. Возможно, стоит взять "
                         f"фрагмент из более громкого места"
                     )
-                cut_fragment(source, fragment, args.start, args.duration, gain=gain)
+                cut_fragment(source, fragment, args.start, args.duration, gain=gain, fade_in=fade_in)
 
             pause = leading_silence(fragment)
             if pause >= 1.0:
