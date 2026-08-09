@@ -189,6 +189,10 @@ def peak_level(path: Path) -> float:
 
     return 0.0
 
+# полсекунды пустоты в начале тридцатипятисекундного фрагмента уже слышно
+# как заминку; порог в секунду такие случаи пропускал
+SILENCE_WARNING = 0.3
+
 def leading_silence(path: Path) -> float:
     """Сколько секунд тишины в начале фрагмента.
 
@@ -352,7 +356,7 @@ def main() -> int:
                 cut_fragment(source, fragment, args.start, args.duration, gain=gain, fade_in=fade_in)
 
             pause = leading_silence(fragment)
-            if pause >= 1.0:
+            if pause >= SILENCE_WARNING:
                 start = float(args.start) + pause
                 print(
                     f"Предупреждение: фрагмент открывается тишиной ({pause:.1f}с). "
