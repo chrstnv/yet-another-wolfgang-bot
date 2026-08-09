@@ -379,7 +379,12 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     stats = progress.summary(answers, library["by_id"])
 
     if not stats["total"]:
-        await update.message.reply_text(PROGRESS_EMPTY)
+        await update.message.reply_text(
+            PROGRESS_EMPTY,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")]
+            ]),
+        )
         return
 
     record = storage.best_streak(context.bot_data["db"], update.effective_user.id)
@@ -405,14 +410,13 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             title = html.escape(library["by_id"][card["card_id"]]["title"])
             lines.append(f"• {title} — {card['correct']} из {card['attempts']}")
 
-    keyboard = None
+    buttons = []
     if missed:
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔁 Работа над ошибками", callback_data="review")]
-        ])
+        buttons.append([InlineKeyboardButton("🔁 Работа над ошибками", callback_data="review")])
+    buttons.append([InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")])
 
     await update.message.reply_text(
-        "\n".join(lines), reply_markup=keyboard, parse_mode="HTML"
+        "\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML"
     )
 
 async def audio_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
