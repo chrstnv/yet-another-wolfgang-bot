@@ -27,6 +27,7 @@ def arguments(**overrides) -> Namespace:
         "distractor": [],
         "append": False,
         "replace_fragment": None,
+        "fade": None,
     }
 
     return Namespace(**{**defaults, **overrides})
@@ -83,3 +84,22 @@ def test_without_append_the_new_fragment_replaces_them_all():
     card = build_card(arguments(fragment="Рондо"), "новый", CARD)
 
     assert [fragment["audio_file_id"] for fragment in card["fragments"]] == ["новый"]
+
+def test_fade_is_recorded_only_when_chosen_by_hand():
+    automatic = build_card(arguments(replace_fragment=1), "новый", CARD)
+    by_hand = build_card(arguments(replace_fragment=1, fade=0.5), "новый", CARD)
+
+    assert "fade" not in automatic["fragments"][1]
+    assert by_hand["fragments"][1]["fade"] == 0.5
+
+def test_fade_length_follows_the_offset_when_not_given():
+    from tools.add_card import FADE_IN, fade_length
+
+    assert fade_length(arguments(start="200")) == FADE_IN
+    assert fade_length(arguments(start="2.1")) == 0.0
+
+def test_fade_length_obeys_a_hand_picked_value():
+    from tools.add_card import fade_length
+
+    assert fade_length(arguments(start="200", fade=0.5)) == 0.5
+    assert fade_length(arguments(start="200", fade=0.0)) == 0.0

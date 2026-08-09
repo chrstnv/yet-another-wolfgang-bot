@@ -50,6 +50,10 @@ def parse_args() -> argparse.Namespace:
         "--replace-fragment", type=int, metavar="N",
         help="перерезать фрагмент №N (с нуля), не трогая соседние",
     )
+    parser.add_argument(
+        "--fade", type=float, metavar="СЕК",
+        help=f"своя длина сглаживания входа вместо автоматической ({FADE_IN}с), 0 — без него",
+    )
 
     return parser.parse_args()
 
@@ -118,13 +122,23 @@ FADE_IN = 0.25
 # Отличить это от настоящей середины можно только по расстоянию от начала
 FADE_AFTER = 20.0
 
+def fade_length(args: argparse.Namespace) -> float:
+    """Сколько сглаживать вход. Своя длина бьёт автоматику: бывает, что
+    четверти секунды мало, а бывает, что фрагмент с первых секунд всё равно
+    начинается резко и подводка нужна вопреки правилу.
+    """
+    if args.fade is not None:
+        return args.fade
+
+    return FADE_IN if float(args.start) >= FADE_AFTER else 0.0
+
 def cut_fragment(
     source: Path,
     target: Path,
     start: str,
     duration: str,
     gain: float = 0.0,
-    fade_in: bool = False,
+    fade: float = 0.0,
 ) -> None:
     """Вырезает кусок, снимает обложку и главы, ставит нейтральный заголовок.
 
@@ -136,8 +150,8 @@ def cut_fragment(
     Подъём громкости — тоже: фильтр применить к скопированному потоку нельзя.
     """
     filters = []
-    if fade_in:
-        filters.append(f"afade=t=in:st=0:d={FADE_IN}")
+    if fade:
+        filters.append(f"afade=t=in:st=0:d={fade}")
     if gain:
         filters.append(f"volume={gain:.1f}dB")
 
@@ -295,6 +309,10 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
             "duration": args.duration,
             "audio_file_id": file_id,
         }
+        # автоматическую длину подводки восстановит сам инструмент, а подобранную
+        # на слух — никто, поэтому её храним рядом с засечкой
+        if args.fade is not None:
+            fragment["fade"] = args.fade
         recording = {"performer": args.performer, "source": args.source}
 
         existing_recording = card.get("recording")
@@ -370,11 +388,11 @@ def main() -> int:
 
         with tempfile.TemporaryDirectory() as tmp:
             fragment = Path(tmp) / "fragment.mp3"
-            fade_in = float(args.start) >= FADE_AFTER
-            cut_fragment(source, fragment, args.start, args.duration, fade_in=fade_in)
+            fade = fade_length(args)
+            cut_fragment(source, fragment, args.start, args.duration, fade=fade)
             print(
                 f"Фрагмент вырезан: {args.start}s + {args.duration}s"
-                + (f", вход сглажен за {FADE_IN}с" if fade_in else "")
+                + (f", вход сглажен за {fade}с" if fade else "")
             )
 
             # записи приходят с очень разным уровнем, и тихие тонут на телефоне
@@ -389,7 +407,7 @@ def main() -> int:
                         f"но выше поднимать нельзя: вылезет шум. Возможно, стоит взять "
                         f"фрагмент из более громкого места"
                     )
-                cut_fragment(source, fragment, args.start, args.duration, gain=gain, fade_in=fade_in)
+                cut_fragment(source, fragment, args.start, args.duration, gain=gain, fade=fade)
 
             pause = leading_silence(fragment)
             if pause >= SILENCE_WARNING:
