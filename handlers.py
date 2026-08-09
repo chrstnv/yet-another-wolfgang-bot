@@ -1,3 +1,4 @@
+import html
 import random
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
@@ -8,7 +9,8 @@ import progress
 import quiz
 import storage
 from data import (
-    GREETING, REVEAL_ANSWERS, SETTINGS, SETTINGS_OFF,
+    GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
+    PROGRESS_TITLE, PROGRESS_WEAKEST, REVEAL_ANSWERS, SETTINGS, SETTINGS_OFF,
     SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
 from keyboards import MENU_KEYBOARD
@@ -350,30 +352,29 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     stats = progress.summary(answers, library["by_id"])
 
     if not stats["total"]:
-        await update.message.reply_text(
-            "📈 Пока пусто. Пройдите первый квиз — и здесь появится статистика."
-        )
+        await update.message.reply_text(PROGRESS_EMPTY)
         return
 
     record = storage.best_streak(context.bot_data["db"], update.effective_user.id)
 
     lines = [
-        "📈 Ваш прогресс",
+        PROGRESS_TITLE,
         "",
-        f"Ответов: {stats['total']}",
-        f"Верно: {stats['correct']} — это {stats['accuracy']}%",
-        f"Произведений услышано: {stats['cards_seen']} из {len(library['playable'])}",
+        PROGRESS_HEARD.format(seen=stats["cards_seen"], total=len(library["playable"])),
+        PROGRESS_CORRECT.format(
+            correct=stats["correct"], answered=stats["total"], accuracy=stats["accuracy"]
+        ),
     ]
 
     if record:
-        lines.append(f"Лучшая серия: {record} подряд")
+        lines.append(PROGRESS_RECORD.format(record=record))
 
     missed = progress.weakest(answers, library["by_id"])
     if missed:
-        lines.append("")
-        lines.append("Пока даются хуже всего:")
+        lines += ["", PROGRESS_WEAKEST]
         for card in missed:
-            title = library["by_id"][card["card_id"]]["title"]
+            # названия идут в разметку, а в них живут кавычки и амперсанды
+            title = html.escape(library["by_id"][card["card_id"]]["title"])
             lines.append(f"• {title} — {card['correct']} из {card['attempts']}")
 
     keyboard = None
@@ -382,7 +383,9 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             [InlineKeyboardButton("🔁 Работа над ошибками", callback_data="review")]
         ])
 
-    await update.message.reply_text("\n".join(lines), reply_markup=keyboard)
+    await update.message.reply_text(
+        "\n".join(lines), reply_markup=keyboard, parse_mode="HTML"
+    )
 
 async def audio_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"file_id: {update.message.audio.file_id}")

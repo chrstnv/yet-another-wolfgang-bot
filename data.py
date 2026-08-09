@@ -15,6 +15,14 @@ SETTINGS_TOAST = {
 
 REVEAL_ANSWERS = "👀 Показать варианты"
 
+PROGRESS_EMPTY = "📈 Пока пусто. Пройдите первый квиз — и здесь появится статистика."
+
+PROGRESS_TITLE = "<b>📈 Ваш прогресс</b>"
+PROGRESS_HEARD = "🎧 Услышано: <b>{seen}</b> из {total} произведений"
+PROGRESS_CORRECT = "✅ Верно: <b>{correct}</b> из {answered} — {accuracy}%"
+PROGRESS_RECORD = "🔥 Лучшая серия: <b>{record}</b> подряд"
+PROGRESS_WEAKEST = "<b>Пока даётся хуже всего</b>"
+
 GREETING = (
     "Привет! Здесь учатся узнавать классику на слух.\n\n"
     "Звучит фрагмент — вы выбираете из четырёх вариантов.\n\n"
