@@ -1,5 +1,24 @@
 import quiz
-from data import VERDICTS
+from data import STREAK_RECORD, STREAK_RESULTS, VERDICTS
+
+def streak_message(length: int, best: int) -> str:
+    """Итог серии, а следом прежний рекорд.
+
+    Когда серия сама стала рекордом, вторая строчка не нужна: она повторяла бы
+    только что сказанное. Нулевому рекорду тоже нечего сообщать.
+    """
+    if not length:
+        key = "zero"
+    elif length > best:
+        key = "record"
+    else:
+        key = "some"
+
+    text = STREAK_RESULTS[key].format(length=length)
+    if key != "record" and best:
+        text += "\n" + STREAK_RECORD.format(record=best)
+
+    return text
 
 def verdict(correct: int, total: int) -> str:
     if correct == total:

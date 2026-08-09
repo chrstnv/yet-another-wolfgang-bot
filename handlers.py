@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 import progress
 import quiz
 import storage
-from data import GREETING, QUESTION, QUIZ_MODES, SECTION_REPLIES, STREAK_RESULTS, STREAK_START
+from data import GREETING, QUESTION, QUIZ_MODES, SECTION_REPLIES, STREAK_START
 from keyboards import MENU_KEYBOARD
 
 # Эффект «конфетти» 🎉. Идентификаторы стандартных эффектов одинаковы у всех,
@@ -145,21 +145,14 @@ async def finish_streak(update: Update, context: ContextTypes.DEFAULT_TYPE, leng
     was_best = storage.best_streak(db, user_id)
     storage.save_streak_run(db, user_id, length)
 
-    if not length:
-        key = "zero"
-    elif length > was_best:
-        key = "record"
-    else:
-        key = "some"
-
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=STREAK_RESULTS[key].format(length=length),
+        text=progress.streak_message(length, was_best),
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🔥 Ещё серия", callback_data="streak")],
             [InlineKeyboardButton("🎲 Случайный квиз", callback_data="restart")],
         ]),
-        message_effect_id=CONFETTI_EFFECT if key == "record" and length else None,
+        message_effect_id=CONFETTI_EFFECT if length > was_best else None,
     )
 
     context.user_data.pop("quiz")

@@ -21,6 +21,8 @@ STREAK_RESULTS = {
     "record": "Серия: {length} подряд — это рекорд.",
 }
 
+STREAK_RECORD = "Ваш рекорд: {record}."
+
 QUESTION = "🎵 Послушайте фрагмент. Какое это произведение?"
 
 VERDICTS = {

@@ -180,3 +180,26 @@ def test_to_review_respects_the_limit():
     ]
 
     assert len(progress.to_review(answers, CARDS_BY_ID, set(CARDS_BY_ID), limit=2)) == 2
+
+def test_streak_message_adds_the_previous_record():
+    text = progress.streak_message(3, best=7)
+
+    assert "3 подряд" in text
+    assert "7" in text
+
+def test_streak_message_says_nothing_about_the_record_when_it_is_beaten():
+    text = progress.streak_message(9, best=7)
+
+    assert "рекорд" in text
+    assert "7" not in text
+
+def test_streak_message_skips_the_record_line_for_the_first_ever_run():
+    text = progress.streak_message(0, best=0)
+
+    assert "\n" not in text
+
+def test_streak_message_shows_the_record_after_a_zero_run():
+    text = progress.streak_message(0, best=4)
+
+    assert "первом же" in text
+    assert "4" in text
