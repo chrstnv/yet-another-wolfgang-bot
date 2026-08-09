@@ -46,6 +46,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--distractor", action="append", default=[], help="предпочтительная ловушка, можно повторять")
     parser.add_argument("--update", action="store_true", help="перезаписать существующую карточку")
     parser.add_argument("--append", action="store_true", help="добавить ещё один фрагмент, не заменяя прежние")
+    parser.add_argument(
+        "--replace-fragment", type=int, metavar="N",
+        help="перерезать фрагмент №N (с нуля), не трогая соседние",
+    )
 
     return parser.parse_args()
 
@@ -280,10 +284,13 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
         card["description"] = args.description
 
     if file_id:
+        fragments = card.get("fragments", [])
+        replaced = fragments[args.replace_fragment] if args.replace_fragment is not None else None
+
         # засечку и длительность храним рядом с фрагментом: без них перерезать
         # его потом можно только по памяти, а память — плохое место для секунд
         fragment = {
-            "name": args.fragment or args.title,
+            "name": args.fragment or (replaced or {}).get("name") or args.title,
             "start": args.start,
             "duration": args.duration,
             "audio_file_id": file_id,
@@ -297,12 +304,24 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
             # Без --append прежние фрагменты стираются, и держать на карточке
             # кредит исчезнувшей записи нельзя: это была бы ложная атрибуция
             fragment["recording"] = recording
+        elif replaced is not None and replaced.get("recording"):
+            # у соседних фрагментов свои исполнители, и общий кредит карточки
+            # к этому месту не относится
+            fragment["recording"] = recording
         else:
             card["recording"] = recording
 
-        # --append добавляет к карточке ещё один фрагмент того же произведения,
-        # без него новая запись заменяет прежние
-        card["fragments"] = (card.get("fragments", []) if args.append else []) + [fragment]
+        if replaced is not None:
+            # перерезаем одно место многочастной карточки: соседи остаются как были
+            card["fragments"] = [
+                fragment if position == args.replace_fragment % len(fragments) else old
+                for position, old in enumerate(fragments)
+            ]
+        else:
+            # --append добавляет к карточке ещё один фрагмент того же произведения,
+            # без него новая запись заменяет прежние
+            card["fragments"] = (fragments if args.append else []) + [fragment]
+
         card.setdefault("facts", [])
 
     return card
@@ -318,9 +337,22 @@ def main() -> int:
         return 1
 
     path = directory / f"{args.id}.json"
-    if path.exists() and not (args.update or args.append):
+    if path.exists() and not (args.update or args.append or args.replace_fragment is not None):
         print(f"Карточка уже существует: {path}. Для перезаписи добавьте --update.")
         return 1
+
+    if args.replace_fragment is not None:
+        if args.append:
+            print("--replace-fragment и --append несовместимы: либо заменить фрагмент, либо добавить новый.")
+            return 1
+        if not args.audio:
+            print("--replace-fragment без --audio нечего заменять.")
+            return 1
+
+        fragments = content.read_card(path).get("fragments", []) if path.exists() else []
+        if not -len(fragments) <= args.replace_fragment < len(fragments):
+            print(f"У карточки {args.id} фрагментов: {len(fragments)}, номера {args.replace_fragment} среди них нет.")
+            return 1
 
     if args.audio:
         for field in ("performer", "source"):
