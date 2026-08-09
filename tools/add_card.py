@@ -97,7 +97,7 @@ def attribution(source: Path) -> dict[str, str]:
 
     return found
 
-def cut_fragment(source: Path, target: Path, start: str, duration: str) -> None:
+def cut_fragment(source: Path, target: Path, start: str, duration: str, gain: float = 0.0) -> None:
     """Вырезает кусок, снимает обложку и главы, ставит нейтральный заголовок.
 
     Метаданные не стираются целиком: artist, comment и copyright несут атрибуцию
@@ -105,9 +105,11 @@ def cut_fragment(source: Path, target: Path, start: str, duration: str) -> None:
 
     Часть исходников только называются mp3, а внутри лежит другой кодек — такие
     приходится перекодировать, потоковое копирование на них не работает.
+    Подъём громкости — тоже: фильтр применить к скопированному потоку нельзя.
     """
     codec = audio_codec(source)
-    encoding = ["-codec", "copy"] if codec == "mp3" else ["-codec:a", "libmp3lame", "-q:a", "2"]
+    reencode = codec != "mp3" or gain
+    encoding = ["-codec:a", "libmp3lame", "-q:a", "2"] if reencode else ["-codec", "copy"]
 
     if codec != "mp3":
         print(f"Исходник в формате {codec}, перекодирую в mp3")
@@ -122,6 +124,7 @@ def cut_fragment(source: Path, target: Path, start: str, duration: str) -> None:
             "-ss", start, "-t", duration,
             "-i", str(source),
             "-vn", "-map_chapters", "-1",
+            *(["-af", f"volume={gain:.1f}dB"] if gain else []),
             *[arg for name, value in credits.items() for arg in ("-metadata", f"{name}={value}")],
             "-metadata", "title=Фрагмент",
             "-metadata", "album=",
@@ -130,6 +133,28 @@ def cut_fragment(source: Path, target: Path, start: str, duration: str) -> None:
         ],
         check=True,
     )
+
+# ниже этого пика фрагмент на телефоне звучит заметно тише соседей по библиотеке
+QUIET_PEAK = -12.0
+# оставляем запас, чтобы подъём ничего не срезал
+TARGET_PEAK = -4.0
+
+def peak_level(path: Path) -> float:
+    """Самый громкий отсчёт фрагмента, в децибелах относительно максимума."""
+    result = subprocess.run(
+        [
+            "ffmpeg", "-hide_banner", "-i", str(path),
+            "-af", "volumedetect", "-f", "null", "-",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    for line in result.stderr.splitlines():
+        if "max_volume:" in line:
+            return float(line.split("max_volume:")[1].replace("dB", "").strip())
+
+    return 0.0
 
 def leading_silence(path: Path) -> float:
     """Сколько секунд тишины в начале фрагмента.
@@ -265,6 +290,14 @@ def main() -> int:
             fragment = Path(tmp) / "fragment.mp3"
             cut_fragment(source, fragment, args.start, args.duration)
             print(f"Фрагмент вырезан: {args.start}s + {args.duration}s")
+
+            # записи приходят с очень разным уровнем, и тихие тонут на телефоне
+            # рядом с громкими; поднимаем по пику, чтобы не трогать динамику внутри
+            peak = peak_level(fragment)
+            if peak < QUIET_PEAK:
+                gain = TARGET_PEAK - peak
+                print(f"Запись тихая (пик {peak:.1f} дБ), поднимаю на {gain:.1f} дБ")
+                cut_fragment(source, fragment, args.start, args.duration, gain=gain)
 
             pause = leading_silence(fragment)
             if pause >= 1.0:
