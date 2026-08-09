@@ -1,6 +1,6 @@
 import random
 
-QUIZ_LENGTH = 5
+QUIZ_LENGTH = 10
 
 STREAK = "streak"
 
