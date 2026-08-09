@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 import progress
 import quiz
 import storage
-from data import QUESTION, SECTION_REPLIES
+from data import GREETING, QUESTION, SECTION_REPLIES
 from keyboards import MENU_KEYBOARD
 
 # Эффект «конфетти» 🎉. Идентификаторы стандартных эффектов одинаковы у всех,
@@ -103,6 +103,36 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     context.user_data.pop("quiz")
 
+async def review_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_reply_markup(reply_markup=None)
+
+    library = context.bot_data["library"]
+    answers = storage.get_answers(context.bot_data["db"], update.effective_user.id)
+    card_ids = progress.to_review(
+        answers,
+        library["by_id"],
+        {card["id"] for card in library["playable"]},
+    )
+
+    if not card_ids:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Пока не на чем тренироваться — ошибок нет.",
+        )
+        return
+
+    previous = context.user_data.get("quiz")
+    if previous and previous["message_id"]:
+        await delete_screen(update, context, previous["message_id"])
+
+    session = quiz.session_for(card_ids)
+    session["message_id"] = None
+    context.user_data["quiz"] = session
+
+    await send_question(update, context)
+
 async def restart_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -127,6 +157,13 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if chosen_id == card_id:
         result = "✅ Верно!"
+        # серию показываем только когда она уже чего-то стоит
+        run = progress.streaks(
+            storage.get_answers(context.bot_data["db"], update.effective_user.id),
+            context.bot_data["library"]["by_id"],
+        )["current"]
+        if run >= 3:
+            result += f" 🔥 {run} подряд."
     else:
         result = "❌ Неправильно."
 
@@ -155,7 +192,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Hello! I'm your bot. How can I help you today?", reply_markup=MENU_KEYBOARD)
+    await update.message.reply_text(GREETING, reply_markup=MENU_KEYBOARD)
 
 async def section_placeholder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(SECTION_REPLIES[update.message.text])
@@ -171,12 +208,15 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
         return
 
+    run = progress.streaks(answers, library["by_id"])
+
     lines = [
         "📈 Ваш прогресс",
         "",
         f"Ответов: {stats['total']}",
         f"Верно: {stats['correct']} — это {stats['accuracy']}%",
         f"Произведений услышано: {stats['cards_seen']} из {len(library['playable'])}",
+        f"Серия: {run['current']} подряд, лучшая — {run['best']}",
     ]
 
     missed = progress.weakest(answers, library["by_id"])
@@ -187,7 +227,13 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             title = library["by_id"][card["card_id"]]["title"]
             lines.append(f"• {title} — {card['correct']} из {card['attempts']}")
 
-    await update.message.reply_text("\n".join(lines))
+    keyboard = None
+    if missed:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔁 Работа над ошибками", callback_data="review")]
+        ])
+
+    await update.message.reply_text("\n".join(lines), reply_markup=keyboard)
 
 async def audio_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"file_id: {update.message.audio.file_id}")

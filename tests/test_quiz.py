@@ -169,3 +169,18 @@ def test_fragment_may_carry_its_own_recording():
     fragment = {"name": "Фрагмент", "recording": {"performer": "Другой", "source": "Иное"}}
 
     assert quiz.recording_of(card, fragment)["performer"] == "Другой"
+
+def test_session_for_keeps_the_given_order():
+    session = quiz.session_for(["italy-capital", "france-capital"])
+
+    assert session["queue"] == ["italy-capital", "france-capital"]
+    assert session["position"] == 0
+    assert session["answers"] == []
+
+def test_session_for_copies_the_list():
+    given = ["france-capital"]
+    session = quiz.session_for(given)
+
+    given.append("germany-capital")
+
+    assert session["queue"] == ["france-capital"]

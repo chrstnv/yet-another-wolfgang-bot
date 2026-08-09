@@ -25,8 +25,9 @@ def save_answer(conn: sqlite3.Connection, user_id: int, card_id: str, chosen: st
     conn.commit()
 
 def get_answers(conn: sqlite3.Connection, user_id: int) -> list[dict]:
+    # порядок важен: по нему считается серия верных ответов подряд
     rows = conn.execute(
-        "SELECT card_id, chosen FROM answers WHERE user_id = ?",
+        "SELECT card_id, chosen FROM answers WHERE user_id = ? ORDER BY id",
         (user_id,),
     ).fetchall()
 

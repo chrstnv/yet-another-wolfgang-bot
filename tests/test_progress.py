@@ -141,3 +141,62 @@ def test_verdict_softens_a_weak_run():
 
 def test_verdict_shows_the_numbers():
     assert "3 из 5" in progress.verdict(3, 5)
+
+def test_streaks_count_the_tail_and_the_best_run():
+    answers = [
+        answer("france-capital", True),
+        answer("germany-capital", True),
+        answer("italy-capital", True),
+        answer("france-capital", False),
+        answer("germany-capital", True),
+        answer("italy-capital", True),
+    ]
+
+    assert progress.streaks(answers, CARDS_BY_ID) == {"current": 2, "best": 3}
+
+def test_streaks_of_no_answers_are_zero():
+    assert progress.streaks([], CARDS_BY_ID) == {"current": 0, "best": 0}
+
+def test_streak_breaks_on_the_last_answer():
+    answers = [answer("france-capital", True), answer("germany-capital", False)]
+
+    assert progress.streaks(answers, CARDS_BY_ID)["current"] == 0
+
+def test_to_review_takes_only_cards_with_mistakes():
+    answers = [
+        answer("france-capital", True),
+        answer("germany-capital", False),
+    ]
+
+    assert progress.to_review(answers, CARDS_BY_ID, set(CARDS_BY_ID)) == ["germany-capital"]
+
+def test_to_review_puts_the_worst_first():
+    answers = [
+        # франция: 1 из 2
+        answer("france-capital", True),
+        answer("france-capital", False),
+        # германия: 0 из 2
+        answer("germany-capital", False),
+        answer("germany-capital", False),
+    ]
+
+    assert progress.to_review(answers, CARDS_BY_ID, set(CARDS_BY_ID)) == [
+        "germany-capital",
+        "france-capital",
+    ]
+
+def test_to_review_skips_cards_that_cannot_be_played():
+    answers = [answer("germany-capital", False), answer("italy-capital", False)]
+
+    playable = {"italy-capital"}
+
+    assert progress.to_review(answers, CARDS_BY_ID, playable) == ["italy-capital"]
+
+def test_to_review_respects_the_limit():
+    answers = [
+        answer("france-capital", False),
+        answer("germany-capital", False),
+        answer("italy-capital", False),
+    ]
+
+    assert len(progress.to_review(answers, CARDS_BY_ID, set(CARDS_BY_ID), limit=2)) == 2

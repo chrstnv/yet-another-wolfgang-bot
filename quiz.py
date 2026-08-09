@@ -2,13 +2,17 @@ import random
 
 QUIZ_LENGTH = 5
 
-def start_session(cards: list[dict], length: int = QUIZ_LENGTH) -> dict:
-    selected = random.sample(cards, k=min(length, len(cards)))
+def session_for(card_ids: list[str]) -> dict:
     return {
-        "queue": [card["id"] for card in selected],
+        "queue": list(card_ids),
         "position": 0,
         "answers": [],
     }
+
+def start_session(cards: list[dict], length: int = QUIZ_LENGTH) -> dict:
+    selected = random.sample(cards, k=min(length, len(cards)))
+
+    return session_for([card["id"] for card in selected])
 
 def current_card_id(session: dict) -> str:
     return session["queue"][session["position"]]
