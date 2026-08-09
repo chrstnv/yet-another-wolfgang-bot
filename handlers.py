@@ -173,10 +173,10 @@ async def streak_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if previous and previous["message_id"]:
         await delete_screen(update, context, previous["message_id"])
 
-    # очередь во всю библиотеку: серия обрывается ошибкой, а не концом списка
+    # очередь во всю библиотеку: серия обрывается ошибкой, а не концом списка,
+    # а порядок в ней идёт от лёгких карточек к трудным
     playable = context.bot_data["library"]["playable"]
-    session = quiz.start_session(playable, length=len(playable))
-    session["mode"] = quiz.STREAK
+    session = quiz.session_for(quiz.streak_queue(playable), mode=quiz.STREAK)
     session["message_id"] = None
     context.user_data["quiz"] = session
 

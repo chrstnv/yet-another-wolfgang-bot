@@ -204,3 +204,37 @@ def test_last_answer_was_wrong_looks_only_at_the_last():
     quiz.record_answer(session, "italy-capital", "france-capital")
 
     assert quiz.last_answer_was_wrong(session)
+
+# трудные стоят первыми нарочно: если из streak_queue пропадёт сортировка,
+# порядок вставки протащит их в начало очереди и тест это поймает
+GRADED = [
+    {"id": "hard-1", "difficulty": 5},
+    {"id": "hard-2", "difficulty": 5},
+    {"id": "unlabelled"},
+    {"id": "easy-1", "difficulty": 1},
+    {"id": "easy-2", "difficulty": 1},
+    {"id": "easy-3", "difficulty": 1},
+]
+
+def test_streak_queue_goes_from_easy_to_hard():
+    queue = quiz.streak_queue(GRADED, step=2)
+
+    assert queue[0].startswith("easy")
+    assert queue[1].startswith("easy")
+    assert queue[2].startswith("hard")
+    assert queue[3].startswith("hard")
+
+def test_streak_queue_takes_no_more_than_step_per_level():
+    queue = quiz.streak_queue(GRADED, step=2)
+
+    assert sum(1 for card_id in queue[:2] if card_id.startswith("easy")) == 2
+
+def test_streak_queue_keeps_every_card_once():
+    queue = quiz.streak_queue(GRADED, step=2)
+
+    assert Counter(queue) == Counter(card["id"] for card in GRADED)
+
+def test_streak_queue_leaves_cards_without_difficulty_to_the_tail():
+    queue = quiz.streak_queue(GRADED, step=2)
+
+    assert "unlabelled" in queue[4:]

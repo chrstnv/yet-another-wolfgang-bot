@@ -22,6 +22,34 @@ def start_session(cards: list[dict], length: int = QUIZ_LENGTH) -> dict:
 
     return session_for([card["id"] for card in selected])
 
+STREAK_STEP = 5
+
+def streak_queue(cards: list[dict], step: int = STREAK_STEP) -> list[str]:
+    """Очередь для серии: по несколько карточек каждой сложности, от лёгких
+    к трудным, а следом всё оставшееся вперемешку.
+
+    Проверять «ответил ли пользователь пять подряд» не нужно: серия обрывается
+    первой же ошибкой, поэтому до шестого вопроса доходит только тот, кто взял
+    предыдущие пять. Порядок очереди и есть правило подъёма сложности.
+    """
+    by_level: dict[int, list[dict]] = {}
+    for card in cards:
+        level = card.get("difficulty")
+        if level is not None:
+            by_level.setdefault(level, []).append(card)
+
+    queue = []
+    for level in sorted(by_level):
+        block = by_level[level]
+        queue += [card["id"] for card in random.sample(block, k=min(step, len(block)))]
+
+    # хвост: и то, что не поместилось в блоки, и карточки без проставленной сложности
+    graded = set(queue)
+    rest = [card["id"] for card in cards if card["id"] not in graded]
+    random.shuffle(rest)
+
+    return queue + rest
+
 def current_card_id(session: dict) -> str:
     return session["queue"][session["position"]]
 
