@@ -1,4 +1,5 @@
 import progress
+import quiz
 
 CARDS = [
     {"id": "france-capital", "title": "Париж"},
@@ -203,3 +204,23 @@ def test_streak_message_shows_the_record_after_a_zero_run():
 
     assert "первом же" in text
     assert "4" in text
+
+def test_question_caption_counts_questions_in_a_quiz():
+    session = quiz.session_for(["a", "b", "c"])
+    session["position"] = 1
+
+    assert "Вопрос 2 из 3" in progress.question_caption(session)
+
+def test_question_caption_counts_the_streak_instead():
+    session = quiz.session_for(["a", "b", "c"], mode=quiz.STREAK)
+    session["position"] = 2
+
+    caption = progress.question_caption(session)
+
+    assert "2 подряд" in caption
+    assert "из 3" not in caption
+
+def test_question_caption_says_nothing_on_the_first_streak_question():
+    session = quiz.session_for(["a", "b", "c"], mode=quiz.STREAK)
+
+    assert "\n" not in progress.question_caption(session)

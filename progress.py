@@ -1,5 +1,21 @@
 import quiz
-from data import STREAK_RECORD, STREAK_RESULTS, VERDICTS
+from data import QUESTION, QUESTION_COUNTER, STREAK_COUNTER, STREAK_RECORD, STREAK_RESULTS, VERDICTS
+
+def question_caption(session: dict) -> str:
+    """Подпись к вопросу: сама формулировка и место в квизе.
+
+    В серии считать «сколько осталось» бессмысленно — очередь во всю
+    библиотеку. Показываем обратное: сколько уже взято подряд. На первом
+    вопросе счёт нулевой, и строчка только мешала бы.
+    """
+    if session.get("mode") == quiz.STREAK:
+        taken = session["position"]
+        return f"{QUESTION}\n\n{STREAK_COUNTER.format(length=taken)}" if taken else QUESTION
+
+    return "{}\n\n{}".format(
+        QUESTION,
+        QUESTION_COUNTER.format(number=session["position"] + 1, total=len(session["queue"])),
+    )
 
 def streak_message(length: int, best: int) -> str:
     """Итог серии, а следом прежний рекорд.

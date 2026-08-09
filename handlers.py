@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 import progress
 import quiz
 import storage
-from data import GREETING, QUESTION, QUIZ_MODES, SECTION_REPLIES, STREAK_START
+from data import GREETING, QUIZ_MODES, SECTION_REPLIES, STREAK_START
 from keyboards import MENU_KEYBOARD
 
 # Эффект «конфетти» 🎉. Идентификаторы стандартных эффектов одинаковы у всех,
@@ -23,10 +23,24 @@ async def delete_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, mess
     except TelegramError:
         pass
 
+    sent = context.user_data.get("audio_messages")
+    if sent and message_id in sent:
+        sent.remove(message_id)
+
+async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Убирает из чата все аудиосообщения, что бот успел прислать.
+
+    Аудио в чате складывается в плейлист: стоит удалить играющее сообщение,
+    и клиент перескакивает на соседнее. Если от брошенной сессии остались
+    фрагменты, новый квиз начинается с чужой музыки.
+    """
+    for message_id in list(context.user_data.get("audio_messages", [])):
+        await delete_screen(update, context, message_id)
+
+    context.user_data["audio_messages"] = []
+
 async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    previous = context.user_data.get("quiz")
-    if previous and previous["message_id"]:
-        await delete_screen(update, context, previous["message_id"])
+    await clear_audio(update, context)
 
     session = quiz.start_session(context.bot_data["library"]["playable"])
     session["message_id"] = None
@@ -50,12 +64,13 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     message = await context.bot.send_audio(
         chat_id=update.effective_chat.id,
         audio=fragment["audio_file_id"],
-        caption=QUESTION,
+        caption=progress.question_caption(session),
         reply_markup=keyboard,
         title="🎵 Фрагмент",
         performer=quiz.recording_of(card, fragment)["performer"],
     )
     session["message_id"] = message.message_id
+    context.user_data.setdefault("audio_messages", []).append(message.message_id)
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -128,9 +143,7 @@ async def review_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         return
 
-    previous = context.user_data.get("quiz")
-    if previous and previous["message_id"]:
-        await delete_screen(update, context, previous["message_id"])
+    await clear_audio(update, context)
 
     session = quiz.session_for(card_ids)
     session["message_id"] = None
@@ -162,9 +175,7 @@ async def streak_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await query.answer()
     await query.edit_message_reply_markup(reply_markup=None)
 
-    previous = context.user_data.get("quiz")
-    if previous and previous["message_id"]:
-        await delete_screen(update, context, previous["message_id"])
+    await clear_audio(update, context)
 
     # очередь во всю библиотеку: серия обрывается ошибкой, а не концом списка,
     # а порядок в ней идёт от лёгких карточек к трудным
