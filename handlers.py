@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 import progress
 import quiz
 import storage
-from data import GREETING, QUESTION, SECTION_REPLIES
+from data import GREETING, QUESTION, QUIZ_MODES, SECTION_REPLIES
 from keyboards import MENU_KEYBOARD
 
 # Эффект «конфетти» 🎉. Идентификаторы стандартных эффектов одинаковы у всех,
@@ -196,6 +196,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def section_placeholder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(SECTION_REPLIES[update.message.text])
+
+async def show_quiz_modes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        QUIZ_MODES,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎲 Случайный квиз", callback_data="restart")],
+            [InlineKeyboardButton("🔁 Работа над ошибками", callback_data="review")],
+        ]),
+    )
 
 async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     library = context.bot_data["library"]

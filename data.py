@@ -1,7 +1,6 @@
-from keyboards import ALL_QUIZZES_LABEL, COLLECTION_LABEL, SETTINGS_LABEL
+from keyboards import COLLECTION_LABEL, SETTINGS_LABEL
 
 SECTION_REPLIES = {
-    ALL_QUIZZES_LABEL: "🎯 Все квизы скоро появятся!",
     COLLECTION_LABEL: "❤️ Коллекция скоро появится!",
     SETTINGS_LABEL: "⚙️ Настройки скоро появятся!",
 }
@@ -11,6 +10,8 @@ GREETING = (
     "Звучит фрагмент — вы выбираете из четырёх вариантов.\n\n"
     "Начните со «🎲 Случайный квиз»."
 )
+
+QUIZ_MODES = "🎯 Что потренируем?"
 
 QUESTION = "🎵 Послушайте фрагмент. Какое это произведение?"
 
