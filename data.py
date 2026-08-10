@@ -104,7 +104,8 @@ QUESTION_VARIANTS = [
 # верно или нет, говорит галочка, а словами это говорит сам Вольфганг:
 # отдельное «Верно!» перед его репликой было бы тем же самым дважды
 ANSWER_CORRECT = "✅ {reply}"
-ANSWER_CORRECT_STREAK = "✅ {reply} 🔥 {length} подряд."
+# счёт серии — отдельной строкой: это не часть реплики, а показание счётчика
+ANSWER_STREAK = "🔥 {length} подряд."
 ANSWER_WRONG = "❌ {reply}"
 
 ANSWER_NAMING = "Это {naming}"

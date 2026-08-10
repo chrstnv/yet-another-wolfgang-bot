@@ -340,7 +340,7 @@ def test_answer_caption_names_the_work_before_the_mistake():
     assert text.startswith("❌ Реплика.\n\nЭто Бизе — Хабанера из «Кармен». Вы же выбрали Верди — «Аида».")
 
 def test_answer_caption_counts_the_streak_beside_the_reply():
-    assert caption(streak=7).startswith("✅ Реплика. 🔥\u00a07\u00a0подряд.")
+    assert caption(streak=7).startswith("✅ Реплика.\n\n🔥\u00a07\u00a0подряд.\n\nЭто Бизе")
 
 def test_answer_caption_runs_the_description_on_from_the_name():
     # одной строкой: вместе они читаются как одна фраза

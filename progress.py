@@ -1,10 +1,9 @@
 import quiz
 from data import (
-    ANSWER_CORRECT, ANSWER_CORRECT_STREAK, ANSWER_DESCRIPTION, ANSWER_FACT, ANSWER_FRAGMENT,
+    ANSWER_CORRECT, ANSWER_DESCRIPTION, ANSWER_FACT, ANSWER_FRAGMENT,
     ANSWER_CHOSEN, ANSWER_NAMING, ANSWER_NAMING_MOZART, ANSWER_NAMING_MOZART_WRONG,
     ANSWER_NAMING_WRONG,
-    ANSWER_RECORDING, ANSWER_RECORDING_LICENSED,
-    ANSWER_WRONG,
+    ANSWER_RECORDING, ANSWER_RECORDING_LICENSED, ANSWER_STREAK, ANSWER_WRONG,
     QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER,
     STREAK_FRESH, STREAK_NEW_RECORD_PLUS, STREAK_RECORD, STREAK_RESULTS, STREAK_TITLE,
     STREAK_TITLE_ZERO, VERDICTS,
@@ -173,10 +172,7 @@ def answer_caption(
         verdict = ANSWER_WRONG.format(reply=reply)
         template = ANSWER_NAMING_MOZART_WRONG if mozart else ANSWER_NAMING_WRONG
     else:
-        verdict = (
-            ANSWER_CORRECT_STREAK.format(reply=reply, length=streak) if streak
-            else ANSWER_CORRECT.format(reply=reply)
-        )
+        verdict = ANSWER_CORRECT.format(reply=reply)
         template = ANSWER_NAMING_MOZART if mozart else ANSWER_NAMING
 
     naming_line = template.format(naming=naming)
@@ -200,9 +196,9 @@ def answer_caption(
 
     credit = ANSWER_RECORDING_LICENSED if recording.get("license") else ANSWER_RECORDING
 
-    return "\n\n".join([
-        verdict,
-        "\n".join(lines),
-        ANSWER_FACT.format(fact=fact),
-        credit.format(**recording),
-    ])
+    blocks = [verdict]
+    if streak:
+        blocks.append(ANSWER_STREAK.format(length=streak))
+    blocks += ["\n".join(lines), ANSWER_FACT.format(fact=fact), credit.format(**recording)]
+
+    return "\n\n".join(blocks)
