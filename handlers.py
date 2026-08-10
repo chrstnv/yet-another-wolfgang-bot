@@ -133,11 +133,17 @@ def one_at_a_time(handler):
     return guarded
 
 async def remove_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
+    """Убирает сообщение, не сдаваясь на первом сетевом сбое.
+
+    Удаление идёт перед отправкой следующего вопроса, и если оно тихо не
+    случится, в чате останутся два аудио разом. Повторить его безопасно:
+    удалить уже удалённое — ошибка, которую мы и так проглатываем.
+    """
     try:
-        await context.bot.delete_message(
+        await telegram_call(lambda: context.bot.delete_message(
             chat_id=update.effective_chat.id,
             message_id=message_id,
-        )
+        ))
     except TelegramError:
         pass
 
