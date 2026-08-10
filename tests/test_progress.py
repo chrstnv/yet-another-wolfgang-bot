@@ -360,3 +360,11 @@ def test_answer_caption_ends_with_the_credit():
 
 def test_answer_caption_says_the_reply_once():
     assert caption().count("Реплика.") == 1
+
+def test_answer_caption_names_the_licence_when_the_recording_carries_one():
+    licensed = {**RECORDING, "license": "CC BY-NC-ND 4.0"}
+
+    assert caption(recording=licensed).endswith("🎧 Кто-то — Откуда-то, CC BY-NC-ND 4.0")
+
+def test_answer_caption_leaves_the_credit_alone_without_a_licence():
+    assert caption().endswith("🎧 Кто-то — Откуда-то")

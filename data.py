@@ -112,6 +112,8 @@ ANSWER_DESCRIPTION = "{description}"
 ANSWER_FRAGMENT = "🎵 {fragment}"
 ANSWER_FACT = "💡 {fact}"
 ANSWER_RECORDING = "🎧 {performer} — {source}"
+# лицензии с NoDerivatives требуют называть себя рядом с записью
+ANSWER_RECORDING_LICENSED = "🎧 {performer} — {source}, {license}"
 
 QUESTION_COUNTER = "<b>Вопрос {number} из {total}</b>"
 

@@ -51,6 +51,11 @@ def parse_args() -> argparse.Namespace:
         help="перерезать фрагмент №N (с нуля), не трогая соседние",
     )
     parser.add_argument(
+        "--as-is", action="store_true",
+        help="залить файл целиком и без изменений — так требуют лицензии с NoDerivatives",
+    )
+    parser.add_argument("--license", help="лицензия записи, если её нужно назвать в подписи")
+    parser.add_argument(
         "--fade", type=float, metavar="СЕК",
         help=f"своя длина сглаживания входа вместо автоматической ({FADE_IN}с), 0 — без него",
     )
@@ -303,17 +308,21 @@ def build_card(args: argparse.Namespace, file_id: str | None, existing: dict | N
 
         # засечку и длительность храним рядом с фрагментом: без них перерезать
         # его потом можно только по памяти, а память — плохое место для секунд
-        fragment = {
-            "name": args.fragment or (replaced or {}).get("name") or args.title,
-            "start": args.start,
-            "duration": args.duration,
-            "audio_file_id": file_id,
-        }
+        fragment = {"name": args.fragment or (replaced or {}).get("name") or args.title}
+        if args.as_is:
+            # у нетронутого файла нет ни засечки, ни своей длины: он и есть запись целиком
+            fragment["as_is"] = True
+        else:
+            fragment["start"] = args.start
+            fragment["duration"] = args.duration
+        fragment["audio_file_id"] = file_id
         # автоматическую длину подводки восстановит сам инструмент, а подобранную
         # на слух — никто, поэтому её храним рядом с засечкой
         if args.fade is not None:
             fragment["fade"] = args.fade
         recording = {"performer": args.performer, "source": args.source}
+        if args.license:
+            recording["license"] = args.license
 
         existing_recording = card.get("recording")
         if args.append and existing_recording and existing_recording != recording:
@@ -359,6 +368,14 @@ def main() -> int:
         print(f"Карточка уже существует: {path}. Для перезаписи добавьте --update.")
         return 1
 
+    if args.as_is:
+        if not args.audio:
+            print("--as-is без --audio нечего заливать.")
+            return 1
+        if args.fade is not None or args.start != "0" or args.duration != "35":
+            print("--as-is значит «файл без изменений»: --start, --duration и --fade к нему неприменимы.")
+            return 1
+
     if args.replace_fragment is not None:
         if args.append:
             print("--replace-fragment и --append несовместимы: либо заменить фрагмент, либо добавить новый.")
@@ -386,38 +403,46 @@ def main() -> int:
             print(f"Файл не найден: {source}")
             return 1
 
-        with tempfile.TemporaryDirectory() as tmp:
-            fragment = Path(tmp) / "fragment.mp3"
-            fade = fade_length(args)
-            cut_fragment(source, fragment, args.start, args.duration, fade=fade)
-            print(
-                f"Фрагмент вырезан: {args.start}s + {args.duration}s"
-                + (f", вход сглажен за {fade}с" if fade else "")
-            )
-
-            # записи приходят с очень разным уровнем, и тихие тонут на телефоне
-            # рядом с громкими; поднимаем по пику, чтобы не трогать динамику внутри
-            peak = peak_level(fragment)
-            if peak < QUIET_PEAK:
-                gain = min(TARGET_PEAK - peak, MAX_GAIN)
-                print(f"Запись тихая (пик {peak:.1f} дБ), поднимаю на {gain:.1f} дБ")
-                if TARGET_PEAK - peak > MAX_GAIN:
-                    print(
-                        f"  до уровня библиотеки не хватает {TARGET_PEAK - peak - MAX_GAIN:.1f} дБ, "
-                        f"но выше поднимать нельзя: вылезет шум. Возможно, стоит взять "
-                        f"фрагмент из более громкого места"
-                    )
-                cut_fragment(source, fragment, args.start, args.duration, gain=gain, fade=fade)
-
-            pause = leading_silence(fragment)
-            if pause >= SILENCE_WARNING:
-                start = float(args.start) + pause
-                print(
-                    f"Предупреждение: фрагмент открывается тишиной ({pause:.1f}с). "
-                    f"Возможно, стоит перерезать с --start {start:.0f}"
-                )
-            file_id = asyncio.run(upload(fragment, args.performer))
+        if args.as_is:
+            # NoDerivatives разрешает распространять запись, но не переработку:
+            # ни резать, ни поднимать громкость, ни переписывать теги нельзя,
+            # поэтому файл уходит в Telegram ровно таким, каким скачан
+            print(f"Заливаю файл целиком и без изменений: {source.name}")
+            file_id = asyncio.run(upload(source, args.performer))
             print(f"Загружено в Telegram: {file_id}")
+        else:
+            with tempfile.TemporaryDirectory() as tmp:
+                fragment = Path(tmp) / "fragment.mp3"
+                fade = fade_length(args)
+                cut_fragment(source, fragment, args.start, args.duration, fade=fade)
+                print(
+                    f"Фрагмент вырезан: {args.start}s + {args.duration}s"
+                    + (f", вход сглажен за {fade}с" if fade else "")
+                )
+
+                # записи приходят с очень разным уровнем, и тихие тонут на телефоне
+                # рядом с громкими; поднимаем по пику, чтобы не трогать динамику внутри
+                peak = peak_level(fragment)
+                if peak < QUIET_PEAK:
+                    gain = min(TARGET_PEAK - peak, MAX_GAIN)
+                    print(f"Запись тихая (пик {peak:.1f} дБ), поднимаю на {gain:.1f} дБ")
+                    if TARGET_PEAK - peak > MAX_GAIN:
+                        print(
+                            f"  до уровня библиотеки не хватает {TARGET_PEAK - peak - MAX_GAIN:.1f} дБ, "
+                            f"но выше поднимать нельзя: вылезет шум. Возможно, стоит взять "
+                            f"фрагмент из более громкого места"
+                        )
+                    cut_fragment(source, fragment, args.start, args.duration, gain=gain, fade=fade)
+
+                pause = leading_silence(fragment)
+                if pause >= SILENCE_WARNING:
+                    start = float(args.start) + pause
+                    print(
+                        f"Предупреждение: фрагмент открывается тишиной ({pause:.1f}с). "
+                        f"Возможно, стоит перерезать с --start {start:.0f}"
+                    )
+                file_id = asyncio.run(upload(fragment, args.performer))
+                print(f"Загружено в Telegram: {file_id}")
     else:
         file_id = None
 

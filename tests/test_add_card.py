@@ -28,6 +28,8 @@ def arguments(**overrides) -> Namespace:
         "append": False,
         "replace_fragment": None,
         "fade": None,
+        "as_is": False,
+        "license": None,
     }
 
     return Namespace(**{**defaults, **overrides})
@@ -103,3 +105,18 @@ def test_fade_length_obeys_a_hand_picked_value():
 
     assert fade_length(arguments(start="200", fade=0.5)) == 0.5
     assert fade_length(arguments(start="200", fade=0.0)) == 0.0
+
+def test_as_is_fragment_records_no_offset():
+    card = build_card(arguments(as_is=True, fragment="Интермеццо"), "новый", None)
+    fragment = card["fragments"][0]
+
+    assert fragment["as_is"] is True
+    assert "start" not in fragment and "duration" not in fragment
+
+def test_licence_goes_onto_the_recording_when_given():
+    card = build_card(arguments(license="CC BY-NC-ND 4.0"), "новый", None)
+
+    assert card["recording"]["license"] == "CC BY-NC-ND 4.0"
+
+def test_recording_has_no_licence_field_by_default():
+    assert "license" not in build_card(arguments(), "новый", None)["recording"]
