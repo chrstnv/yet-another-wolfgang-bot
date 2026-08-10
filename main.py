@@ -25,12 +25,20 @@ def main() -> None:
     persistence = PicklePersistence(
         filepath=os.getenv("STATE_PATH", "state.pickle"),
         store_data=PersistenceInput(bot_data=False, chat_data=False, callback_data=False),
+        # по умолчанию состояние сбрасывается на диск раз в минуту, и квиз,
+        # начатый позже последней записи, перезапуск не переживал: кнопки под
+        # вопросом оказывались от сессии, которой уже нет. Файл весит килобайты,
+        # так что писать его каждую секунду ничего не стоит
+        update_interval=1,
     )
 
     app = (
         Application.builder()
         .token(os.getenv("BOT_TOKEN"))
         .persistence(persistence)
+        # пять секунд по умолчанию мало для холодной сети: соединение не успевает
+        # установиться, и запуск падает на первом же обращении
+        .connect_timeout(20)
         .build()
     )
 
@@ -74,7 +82,11 @@ def main() -> None:
 
     app.add_handler(MessageHandler(filters.TEXT, effect_id))
 
-    app.run_polling()
+    # без этого первая же неудачная попытка достучаться до Телеграма роняет
+    # запуск: «Failed run number 0 of 0. Aborting». Сеть после пробуждения
+    # ноутбука поднимается не мгновенно, и ждать её правильнее, чем падать.
+    # Неверный токен под это исключение не попадает и по-прежнему прерывает старт
+    app.run_polling(bootstrap_retries=-1)
 
 if __name__ == "__main__":
     main()

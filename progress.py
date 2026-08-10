@@ -1,7 +1,8 @@
 import quiz
 from data import (
     ANSWER_CORRECT, ANSWER_CORRECT_STREAK, ANSWER_DESCRIPTION, ANSWER_FACT, ANSWER_FRAGMENT,
-    ANSWER_NAMING, ANSWER_NAMING_WRONG, ANSWER_RECORDING, ANSWER_RECORDING_LICENSED,
+    ANSWER_NAMING, ANSWER_NAMING_MOZART, ANSWER_NAMING_MOZART_WRONG, ANSWER_NAMING_WRONG,
+    ANSWER_RECORDING, ANSWER_RECORDING_LICENSED,
     ANSWER_WRONG,
     QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER,
     STREAK_FRESH, STREAK_NEW_RECORD_PLUS, STREAK_RECORD, STREAK_RESULTS, STREAK_TITLE,
@@ -154,6 +155,7 @@ def answer_caption(
     correct: bool,
     chosen: str = "",
     streak: int = 0,
+    mozart: bool = False,
 ) -> str:
     """Подпись к отвеченному вопросу.
 
@@ -168,13 +170,14 @@ def answer_caption(
     """
     if not correct:
         verdict = ANSWER_WRONG.format(reply=reply)
-        about = [ANSWER_NAMING_WRONG.format(naming=naming, chosen=chosen)]
+        naming_line = ANSWER_NAMING_MOZART_WRONG if mozart else ANSWER_NAMING_WRONG
+        about = [naming_line.format(naming=naming, chosen=chosen)]
     else:
         verdict = (
             ANSWER_CORRECT_STREAK.format(reply=reply, length=streak) if streak
             else ANSWER_CORRECT.format(reply=reply)
         )
-        about = [ANSWER_NAMING.format(naming=naming)]
+        about = [(ANSWER_NAMING_MOZART if mozart else ANSWER_NAMING).format(naming=naming)]
 
     if description:
         # название и описание — одно предложение через точку, а не две строки:

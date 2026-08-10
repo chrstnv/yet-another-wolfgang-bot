@@ -108,6 +108,10 @@ ANSWER_WRONG = "❌ {reply}"
 ANSWER_NAMING = "Это {naming}."
 ANSWER_NAMING_WRONG = "Это {naming}, а не {chosen}."
 
+# на собственной музыке Вольфганг не представляет автора, а признаётся
+ANSWER_NAMING_MOZART = "Это, разумеется, я — {naming}."
+ANSWER_NAMING_MOZART_WRONG = "А это был я — {naming}. Вы же выбрали {chosen}."
+
 ANSWER_DESCRIPTION = "{description}"
 ANSWER_FRAGMENT = "🎵 {fragment}"
 ANSWER_FACT = "💡 {fact}"
@@ -138,7 +142,6 @@ CORRECT_REPLIES = [
     "Вот. Всё-таки я хорош.",
     "Разумеется. Не зря я вас обучал.",
     "Ну вот. Мои старания не пропали зря.",
-    "Вот видите, как полезно иногда меня слушаться.",
     "Мои поздравления. В основном мне.",
     "Неплохо. Особенно с моей помощью.",
     "Очевидно, мои методы снова работают.",

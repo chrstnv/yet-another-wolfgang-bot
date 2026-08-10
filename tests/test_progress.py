@@ -368,3 +368,14 @@ def test_answer_caption_names_the_licence_when_the_recording_carries_one():
 
 def test_answer_caption_leaves_the_credit_alone_without_a_licence():
     assert caption().endswith("🎧 Кто-то — Откуда-то")
+
+def test_answer_caption_lets_mozart_own_his_music():
+    assert "Это, разумеется, я — Хабанера" in caption(naming="Хабанера", mozart=True)
+
+def test_answer_caption_mozart_owns_it_even_when_missed():
+    text = caption(naming="Симфония №40", mozart=True, correct=False, chosen="Гайдн — «Времена года»")
+
+    assert "А это был я — Симфония №40. Вы же выбрали Гайдн — «Времена года»." in text
+
+def test_answer_caption_introduces_everyone_else_in_the_third_person():
+    assert caption().count("Это Бизе") == 1

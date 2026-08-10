@@ -366,6 +366,12 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     original = card.get("original_title")
     naming = f"{card['title']} ({original})" if original else card["title"]
 
+    # о себе Вольфганг говорит в первом лице, и фамилия в начале названия
+    # становится лишней: «это я — Моцарт — Лакримоза» звучит как заикание
+    mozart = card.get("composer") == quiz.MOZART
+    if mozart:
+        naming = naming.split(" — ", 1)[-1]
+
     # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
     fragment = session["fragment"] if session["fragment"] not in card["title"] else ""
 
@@ -380,6 +386,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             correct=correct,
             chosen=context.bot_data["library"]["by_id"][chosen_id]["title"],
             streak=quiz.score(session) if session.get("mode") == quiz.STREAK else 0,
+            mozart=mozart,
         ),
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("Дальше →", callback_data="next")]
