@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from telegram.error import BadRequest, TimedOut
 
-from handlers import telegram_call
+from handlers import acknowledge, telegram_call
 
 def run(coroutine):
     return asyncio.run(coroutine)
@@ -52,3 +52,25 @@ def test_telegram_call_does_not_retry_other_bad_requests():
         run(telegram_call(call, pause=0))
 
     assert call.calls["count"] == 1
+
+class Query:
+    """Кнопка, которая на любое подтверждение отвечает ошибкой."""
+
+    def __init__(self, error):
+        self.error = error
+        self.answered = 0
+
+    async def answer(self, text=None, show_alert=False):
+        self.answered += 1
+        raise self.error
+
+@pytest.mark.parametrize("error", [
+    TimedOut(),
+    BadRequest("Query is too old and response timeout expired or query id is invalid"),
+])
+def test_acknowledge_survives_a_button_that_cannot_be_answered(error):
+    query = Query(error)
+
+    run(acknowledge(query))
+
+    assert query.answered == 1

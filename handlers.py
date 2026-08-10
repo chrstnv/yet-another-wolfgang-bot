@@ -45,17 +45,22 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     LOGGER.error("Необработанная ошибка", exc_info=error)
 
-async def acknowledge(query) -> None:
-    """Гасит «часики» на нажатой кнопке.
+async def acknowledge(query, text: str | None = None, show_alert: bool = False) -> None:
+    """Гасит «часики» на нажатой кнопке — последним делом, а не первым.
 
-    Ответить на нажатие Телеграм разрешает лишь несколько секунд. Если бот в
-    этот момент перезапускался или лежал, нажатие приезжает уже просроченным —
-    и «часики» гаснут сами. Ронять из-за этого весь обработчик незачем: всё
-    остальное, что делает кнопка, сделать по-прежнему можно.
+    Пока нажатие не подтверждено, Телеграм крутит на кнопке индикатор. Это
+    и есть честный ответ пользователю на время, пока мы пробиваемся сквозь
+    сеть: подтвердив сразу, мы бы погасили индикатор и оставили человека
+    смотреть на молчащий экран.
+
+    Ошибки тут глотаются любые. Ответить на нажатие Телеграм разрешает лишь
+    несколько секунд: если мы столько провозились или бот перезапускался,
+    подтверждать уже нечего — индикатор погаснет сам. Повторять тоже незачем,
+    к третьей попытке нажатие протухнет наверняка.
     """
     try:
-        await query.answer()
-    except BadRequest:
+        await query.answer(text=text, show_alert=show_alert)
+    except TelegramError:
         pass
 
 # сколько раз пробовать достучаться до Телеграма, прежде чем сдаться
@@ -195,12 +200,11 @@ async def expire(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ничего не делать хуже всего — кнопки выглядят сломанными.
     """
     query = update.callback_query
-    await query.answer(QUIZ_EXPIRED, show_alert=True)
+    await acknowledge(query, QUIZ_EXPIRED, show_alert=True)
     await telegram_call(lambda: query.edit_message_reply_markup(reply_markup=None))
 
 async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await acknowledge(query)
 
     session = context.user_data.get("quiz")
     if not session:
@@ -212,6 +216,7 @@ async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await telegram_call(lambda: query.edit_message_reply_markup(
         reply_markup=options_keyboard(session["options"], context.bot_data["library"]["by_id"])
     ))
+    await acknowledge(query)
 
 def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
     return (
@@ -226,9 +231,9 @@ def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
 
 async def close_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await acknowledge(query)
 
     await remove_message(update, context, query.message.message_id)
+    await acknowledge(query)
 
 async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await remove_message(update, context, update.message.message_id)
@@ -248,14 +253,13 @@ async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE
     storage.set_hide_options(db, user_id, hidden)
 
     # всплывающая подсказка: смена слова в тексте сама по себе незаметна
-    await query.answer(SETTINGS_TOAST[hidden])
+    await acknowledge(query, SETTINGS_TOAST[hidden])
 
     text, keyboard = settings_view(hidden)
     await telegram_call(lambda: query.edit_message_text(text, reply_markup=keyboard))
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await acknowledge(query)
 
     session = context.user_data.get("quiz")
     if not session:
@@ -274,6 +278,8 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await finish_quiz(update, context)
     else:
         await send_question(update, context)
+
+    await acknowledge(query)
 
 async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = context.user_data["quiz"]
@@ -392,7 +398,6 @@ async def restart_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await acknowledge(query)
 
     session = context.user_data.get("quiz")
     if not session:
@@ -441,6 +446,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             [InlineKeyboardButton("Дальше →", callback_data="next")]
         ]),
     ))
+    await acknowledge(query)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(GREETING, reply_markup=MENU_KEYBOARD)
