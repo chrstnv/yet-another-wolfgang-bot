@@ -36,6 +36,19 @@ async def acknowledge(query) -> None:
     except BadRequest:
         pass
 
+async def unchanged_is_fine(edit) -> None:
+    """Правка, которая ничего не меняет, для Телеграма ошибка.
+
+    Случается на двойном нажатии: кнопки уже сняты или варианты уже открыты,
+    и второй запрос отправляет ровно то же, что там лежит. Делать после этого
+    нечего, а падать не за чем.
+    """
+    try:
+        await edit
+    except BadRequest as error:
+        if "not modified" not in str(error).lower():
+            raise
+
 async def remove_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
     try:
         await context.bot.delete_message(
@@ -61,7 +74,7 @@ async def dismiss_tap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     query = update.callback_query
     if query:
         await acknowledge(query)
-        await query.edit_message_reply_markup(reply_markup=None)
+        await unchanged_is_fine(query.edit_message_reply_markup(reply_markup=None))
 
 async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Убирает из чата все аудиосообщения, что бот успел прислать.
@@ -147,7 +160,7 @@ async def expire(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     query = update.callback_query
     await query.answer(QUIZ_EXPIRED, show_alert=True)
-    await query.edit_message_reply_markup(reply_markup=None)
+    await unchanged_is_fine(query.edit_message_reply_markup(reply_markup=None))
 
 async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -160,9 +173,9 @@ async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if query.message.message_id != session["message_id"]:
         return
 
-    await query.edit_message_reply_markup(
+    await unchanged_is_fine(query.edit_message_reply_markup(
         reply_markup=options_keyboard(session["options"], context.bot_data["library"]["by_id"])
-    )
+    ))
 
 def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
     return (
@@ -202,7 +215,7 @@ async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.answer(SETTINGS_TOAST[hidden])
 
     text, keyboard = settings_view(hidden)
-    await query.edit_message_text(text, reply_markup=keyboard)
+    await unchanged_is_fine(query.edit_message_text(text, reply_markup=keyboard))
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query

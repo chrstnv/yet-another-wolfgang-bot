@@ -36,9 +36,14 @@ def main() -> None:
         Application.builder()
         .token(os.getenv("BOT_TOKEN"))
         .persistence(persistence)
-        # пять секунд по умолчанию мало для холодной сети: соединение не успевает
-        # установиться, и запуск падает на первом же обращении
+        # значения по умолчанию (5 секунд на всё, секунда на пул) рассчитаны на
+        # быструю сеть; на медленной они дают поток telegram.error.TimedOut,
+        # и каждый такой таймаут — это кнопка, которая ничего не сделала
         .connect_timeout(20)
+        .read_timeout(30)
+        .write_timeout(30)
+        .pool_timeout(5)
+        .media_write_timeout(60)
         .build()
     )
 

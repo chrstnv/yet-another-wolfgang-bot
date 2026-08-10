@@ -214,10 +214,10 @@ def test_streak_message_says_nothing_about_findings_when_there_are_none():
 def test_streak_message_puts_the_count_in_the_headline():
     assert "<b>🔥 Серия: 5</b>" in progress.streak_message(5, best=7)
 
-def test_streak_message_headline_survives_a_run_of_nothing():
+def test_streak_message_counts_a_run_of_nothing_as_zero():
     text = progress.streak_message(0, best=7)
 
-    assert "Серия: 0" not in text
+    assert text.startswith("<b>🔥 Серия: 0</b>")
 
 def test_streak_message_shows_the_record_after_a_zero_run():
     text = progress.streak_message(0, best=4)

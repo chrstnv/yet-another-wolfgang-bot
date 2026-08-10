@@ -52,7 +52,7 @@ STREAK_START = (
 )
 
 STREAK_TITLE = "<b>🔥 Серия: {length}</b>"
-STREAK_TITLE_ZERO = "<b>🔥 Серия ещё не началась</b>"
+STREAK_TITLE_ZERO = "<b>🔥 Серия: 0</b>"
 
 STREAK_RESULTS = {
     "zero": (
