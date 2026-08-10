@@ -1,7 +1,9 @@
 import quiz
 from data import (
-    QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER, STREAK_FRESH, STREAK_NEW_RECORD_PLUS,
-    STREAK_RECORD, STREAK_RESULTS, STREAK_TITLE, STREAK_TITLE_ZERO, VERDICTS,
+    ANSWER_CORRECT, ANSWER_CORRECT_STREAK, ANSWER_DESCRIPTION, ANSWER_FACT, ANSWER_FRAGMENT,
+    ANSWER_RECORDING, ANSWER_WRONG, QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER,
+    STREAK_FRESH, STREAK_NEW_RECORD_PLUS, STREAK_RECORD, STREAK_RESULTS, STREAK_TITLE,
+    STREAK_TITLE_ZERO, VERDICTS,
 )
 
 def question_caption(session: dict) -> str:
@@ -139,3 +141,44 @@ def to_review(answers: list[dict], cards_by_id: dict, playable_ids: set, limit: 
     missed.sort(key=lambda card: (card["correct"] / card["attempts"], -card["attempts"]))
 
     return [card["card_id"] for card in missed[:limit]]
+
+def answer_caption(
+    naming: str,
+    description: str,
+    fragment: str,
+    fact: str,
+    recording: dict,
+    reply: str,
+    correct: bool,
+    chosen: str = "",
+    streak: int = 0,
+) -> str:
+    """Подпись к отвеченному вопросу.
+
+    Порядок продиктован тем, что видно до разворачивания: сначала итог и что
+    это было — ради этого кнопку и нажимали. Реплика, факт и кредит записи
+    уезжают ниже, их можно прочитать и потом.
+
+    Название с описанием стоят вплотную, без пустой строки: вместе они
+    читаются как одна фраза, а каждая пустая строка — это строка экрана.
+    """
+    if not correct:
+        head = ANSWER_WRONG.format(naming=naming, chosen=chosen)
+    elif streak:
+        head = ANSWER_CORRECT_STREAK.format(naming=naming, length=streak)
+    else:
+        head = ANSWER_CORRECT.format(naming=naming)
+
+    opening = [head]
+    if description:
+        opening.append(ANSWER_DESCRIPTION.format(description=description))
+    # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
+    if fragment:
+        opening.append(ANSWER_FRAGMENT.format(fragment=fragment))
+
+    return "\n\n".join([
+        "\n".join(opening),
+        reply,
+        ANSWER_FACT.format(fact=fact),
+        ANSWER_RECORDING.format(**recording),
+    ])

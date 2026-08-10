@@ -350,39 +350,23 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     deck = quiz.reply_deck(card, correct)
     reply = quiz.next_line(session, deck, REPLY_DECKS[deck])
 
-    if correct:
-        result = "✅ Верно!"
-        if session.get("mode") == quiz.STREAK:
-            result += f" 🔥 {quiz.score(session)} подряд."
-    else:
-        chosen = context.bot_data["library"]["by_id"][chosen_id]["title"]
-        result = f"❌ Неправильно. Вы выбрали «{chosen}»."
-
-    result += f"\n\n{reply}"
-
-    fact = random.choice(card["facts"])
-
-    recording = session["recording"]
-
     original = card.get("original_title")
     naming = f"{card['title']} ({original})" if original else card["title"]
 
     # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
-    fragment_line = ""
-    if session["fragment"] not in card["title"]:
-        fragment_line = f"Фрагмент: «{session['fragment']}».\n"
-
-    # описание показывается всегда, если написано: факты выпадают по одному
-    # и случайно, а контекст нужен каждый раз
-    description = card.get("description")
-    description_line = f"\n{description}\n" if description else ""
+    fragment = session["fragment"] if session["fragment"] not in card["title"] else ""
 
     await query.edit_message_caption(
-        caption=(
-            f"{result}\n\nЭто {naming}.\n"
-            f"{fragment_line}{description_line}\n"
-            f"💡 {fact}\n\n"
-            f"🎧 Запись: {recording['performer']} — {recording['source']}"
+        caption=progress.answer_caption(
+            naming=naming,
+            description=card.get("description", ""),
+            fragment=fragment,
+            fact=random.choice(card["facts"]),
+            recording=session["recording"],
+            reply=reply,
+            correct=correct,
+            chosen=context.bot_data["library"]["by_id"][chosen_id]["title"],
+            streak=quiz.score(session) if session.get("mode") == quiz.STREAK else 0,
         ),
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("Дальше →", callback_data="next")]

@@ -315,3 +315,50 @@ def test_streak_message_keeps_the_plain_record_line_for_a_small_gain():
 
     assert STREAK_RESULTS["record"].format(length=21) in text
     assert STREAK_NEW_RECORD_PLUS.format(length=21) not in text
+
+RECORDING = {"performer": "Кто-то", "source": "Откуда-то"}
+
+def caption(**overrides):
+    defaults = {
+        "naming": "Бизе — Хабанера из «Кармен»",
+        "description": "Выходная ария Кармен в первом акте.",
+        "fragment": "",
+        "fact": "Факт.",
+        "recording": RECORDING,
+        "reply": "Реплика.",
+        "correct": True,
+    }
+
+    return progress.answer_caption(**{**defaults, **overrides})
+
+def test_answer_caption_opens_with_the_verdict_and_the_name():
+    assert caption().startswith("✅ Верно! Это Бизе — Хабанера из «Кармен».")
+
+def test_answer_caption_names_the_work_before_the_mistake():
+    text = caption(correct=False, chosen="Верди — «Аида»")
+
+    assert text.startswith("❌ Это Бизе — Хабанера из «Кармен», а не «Верди — «Аида»».")
+
+def test_answer_caption_counts_the_streak_in_the_first_line():
+    assert caption(streak=7).startswith("✅ Верно, 🔥 7 подряд!")
+
+def test_answer_caption_keeps_the_description_against_the_name():
+    # без пустой строки: вместе они читаются как одна фраза
+    text = caption()
+
+    assert "Кармен».\n🎼 Выходная ария" in text
+
+def test_answer_caption_skips_the_description_when_there_is_none():
+    assert "🎼" not in caption(description="")
+
+def test_answer_caption_names_the_fragment_only_when_given():
+    assert "🎵 Адажио" in caption(fragment="Адажио")
+    assert "🎵" not in caption(fragment="")
+
+def test_answer_caption_ends_with_the_credit():
+    assert caption().endswith("🎧 Кто-то — Откуда-то")
+
+def test_answer_caption_puts_the_reply_after_the_facts_of_the_matter():
+    text = caption()
+
+    assert text.index("Это Бизе") < text.index("Реплика.") < text.index("💡 Факт.")
