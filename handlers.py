@@ -64,10 +64,12 @@ async def acknowledge(query, text: str | None = None, show_alert: bool = False) 
         pass
 
 # сколько раз пробовать достучаться до Телеграма и сколько ждать между попытками.
-# Три попытки по пять секунд с короткими паузами укладываются в пятнадцать секунд —
-# ровно столько живёт нажатие, дольше держать пользователя не за чем
-ATTEMPTS = 3
-PAUSE = 0.25
+# Шесть коротких заходов лучше трёх долгих: обрыв соединения — событие мгновенное,
+# и второй набор через двести миллисекунд имеет столько же шансов, сколько первый.
+# Пауза постоянная, а не растущая: с растущей шесть попыток не уложились бы
+# в пятнадцать секунд, которые Телеграм держит нажатие живым
+ATTEMPTS = 6
+PAUSE = 0.2
 
 async def telegram_call(call, attempts: int = ATTEMPTS, pause: float = PAUSE):
     """Обращение к Телеграму с повтором на сетевых сбоях.
@@ -91,7 +93,7 @@ async def telegram_call(call, attempts: int = ATTEMPTS, pause: float = PAUSE):
             if attempt == attempts:
                 raise
             LOGGER.warning("Телеграм не отозвался (%s), попытка %d", error, attempt + 1)
-            await asyncio.sleep(pause * attempt)
+            await asyncio.sleep(pause)
 
 async def remove_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
     try:
