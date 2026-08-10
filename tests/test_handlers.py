@@ -1,9 +1,10 @@
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 from telegram.error import BadRequest, TimedOut
 
-from handlers import acknowledge, telegram_call
+from handlers import acknowledge, one_at_a_time, telegram_call
 
 def run(coroutine):
     return asyncio.run(coroutine)
@@ -74,3 +75,76 @@ def test_acknowledge_survives_a_button_that_cannot_be_answered(error):
     run(acknowledge(query))
 
     assert query.answered == 1
+
+def make_update(user_id=1):
+    return SimpleNamespace(effective_user=SimpleNamespace(id=user_id), callback_query=None)
+
+def test_one_at_a_time_lets_a_lone_tap_through():
+    seen = []
+
+    @one_at_a_time
+    async def handler(update, context):
+        seen.append("работал")
+
+    run(handler(make_update(), None))
+
+    assert seen == ["работал"]
+
+def test_one_at_a_time_drops_a_tap_while_the_previous_one_works():
+    seen = []
+
+    @one_at_a_time
+    async def handler(update, context):
+        seen.append("начал")
+        await asyncio.sleep(0.05)
+        seen.append("кончил")
+
+    async def both():
+        await asyncio.gather(
+            handler(make_update(), None),
+            handler(make_update(), None),
+        )
+
+    run(both())
+
+    assert seen == ["начал", "кончил"]
+
+def test_one_at_a_time_keeps_users_apart():
+    seen = []
+
+    @one_at_a_time
+    async def handler(update, context):
+        seen.append(update.effective_user.id)
+        await asyncio.sleep(0.05)
+
+    async def two_people():
+        await asyncio.gather(handler(make_update(1), None), handler(make_update(2), None))
+
+    run(two_people())
+
+    assert sorted(seen) == [1, 2]
+
+def test_one_at_a_time_lets_a_handler_call_another():
+    seen = []
+
+    @one_at_a_time
+    async def inner(update, context):
+        seen.append("внутренний")
+
+    @one_at_a_time
+    async def outer(update, context):
+        seen.append("внешний")
+        await inner(update, context)
+
+    run(outer(make_update(), None))
+
+    assert seen == ["внешний", "внутренний"]
+
+def test_one_at_a_time_releases_the_lock_after_a_failure():
+    @one_at_a_time
+    async def handler(update, context):
+        raise ValueError("сломалось")
+
+    for _ in range(2):
+        with pytest.raises(ValueError):
+            run(handler(make_update(), None))

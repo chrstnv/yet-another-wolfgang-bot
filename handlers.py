@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import html
 import logging
 import random
@@ -95,6 +96,42 @@ async def telegram_call(call, attempts: int = ATTEMPTS, pause: float = PAUSE):
             LOGGER.warning("Телеграм не отозвался (%s), попытка %d", error, attempt + 1)
             await asyncio.sleep(pause)
 
+# кого мы сейчас обслуживаем. Библиотека и так берёт обновления по одному, но
+# очередь не спасает: пока нажатие десять секунд пробивается сквозь сеть, нажатия
+# нетерпеливого пользователя копятся, и каждое заводит собственную цепочку попыток
+WORKING: dict[int, asyncio.Task] = {}
+
+def one_at_a_time(handler):
+    """Пока нажатие этого пользователя в работе, следующие гасим и забываем.
+
+    Держим не флаг, а саму задачу: обработчики зовут друг друга — «ещё квиз»
+    ведёт в случайный квиз, — и на флаге такой вызов заблокировал бы сам себя.
+    Своей же задаче замок открыт.
+    """
+
+    @functools.wraps(handler)
+    async def guarded(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        user_id = update.effective_user.id
+        holder = WORKING.get(user_id)
+
+        if holder is not None and holder is not asyncio.current_task():
+            LOGGER.info("Нажатие пропущено: предыдущее ещё в работе")
+            if update.callback_query:
+                await acknowledge(update.callback_query)
+            return
+
+        if holder is not None:
+            await handler(update, context)
+            return
+
+        WORKING[user_id] = asyncio.current_task()
+        try:
+            await handler(update, context)
+        finally:
+            WORKING.pop(user_id, None)
+
+    return guarded
+
 async def remove_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
     try:
         await context.bot.delete_message(
@@ -145,6 +182,7 @@ def remember_seen(update: Update, context: ContextTypes.DEFAULT_TYPE, session: d
     answers = storage.get_answers(context.bot_data["db"], update.effective_user.id)
     session["seen"] = {answer["card_id"] for answer in answers}
 
+@one_at_a_time
 async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message:
         await remove_message(update, context, update.message.message_id)
@@ -208,6 +246,7 @@ async def expire(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await acknowledge(query, QUIZ_EXPIRED, show_alert=True)
     await telegram_call(lambda: query.edit_message_reply_markup(reply_markup=None))
 
+@one_at_a_time
 async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
 
@@ -235,6 +274,7 @@ def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
         ]),
     )
 
+@one_at_a_time
 async def close_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
 
@@ -249,6 +289,7 @@ async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     await update.message.reply_text(text, reply_markup=keyboard)
 
+@one_at_a_time
 async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
 
@@ -264,6 +305,7 @@ async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE
     text, keyboard = settings_view(hidden)
     await telegram_call(lambda: query.edit_message_text(text, reply_markup=keyboard))
 
+@one_at_a_time
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
 
@@ -328,6 +370,7 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     context.user_data.pop("quiz")
 
+@one_at_a_time
 async def review_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await dismiss_tap(update, context)
 
@@ -382,6 +425,7 @@ async def finish_streak(update: Update, context: ContextTypes.DEFAULT_TYPE, leng
 
     context.user_data.pop("quiz")
 
+@one_at_a_time
 async def streak_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await dismiss_tap(update, context)
 
@@ -398,11 +442,13 @@ async def streak_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await context.bot.send_message(chat_id=update.effective_chat.id, text=STREAK_START)
     await send_question(update, context)
 
+@one_at_a_time
 async def restart_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await dismiss_tap(update, context)
 
     await random_quiz(update, context)
 
+@one_at_a_time
 async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
 
