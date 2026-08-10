@@ -14,6 +14,7 @@ import storage
 from data import (
     CLOSE_BUTTON, GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
     PROGRESS_TITLE, PROGRESS_WEAKEST, QUESTION_VARIANTS, QUIZ_EXPIRED, REPLY_DECKS,
+    STREAK_FRESH,
     REVEAL_ANSWERS, SETTINGS,
     SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
@@ -357,17 +358,18 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await finish_streak(update, context, correct_count)
         return
 
+    # названия идут в разметку, а в них живут кавычки и амперсанды
     answers_list = [
-        f"{title} — {'✅ Верно!' if is_correct else '❌ Неправильно.'}"
+        f"• {html.escape(title)} — {'✅ Верно!' if is_correct else '❌ Неправильно.'}"
         for title, is_correct in quiz.breakdown(session, context.bot_data["library"]["by_id"])
     ]
 
     fresh = [
-        context.bot_data["library"]["by_id"][card_id]["title"]
+        html.escape(context.bot_data["library"]["by_id"][card_id]["title"])
         for card_id in progress.first_time(session)
     ]
     if fresh:
-        answers_list += ["", f"Впервые услышано: {len(fresh)}"]
+        answers_list += ["", STREAK_FRESH.format(count=len(fresh))]
         answers_list += [f"• {title}" for title in fresh]
 
     await context.bot.send_message(
@@ -376,6 +378,7 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             f"{progress.verdict(correct_count, total)}\n\n"
             f"{"\n".join(answers_list)}"
         ),
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🎲 Ещё квиз", callback_data="restart")]
         ]),
