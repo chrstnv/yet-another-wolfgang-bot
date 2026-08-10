@@ -10,7 +10,7 @@ import quiz
 import storage
 from data import (
     CLOSE_BUTTON, GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
-    PROGRESS_TITLE, PROGRESS_WEAKEST, QUIZ_EXPIRED, REVEAL_ANSWERS, SETTINGS,
+    PROGRESS_TITLE, PROGRESS_WEAKEST, QUESTION_VARIANTS, QUIZ_EXPIRED, REVEAL_ANSWERS, SETTINGS,
     SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
 from keyboards import MENU_KEYBOARD
@@ -98,6 +98,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     fragment = quiz.pick_fragment(card)
     session["fragment"] = fragment["name"]
     session["recording"] = quiz.recording_of(card, fragment)
+    session["question"] = random.choice(QUESTION_VARIANTS)
 
     # варианты выбираются один раз: если открывать их кнопкой, набор должен
     # остаться тем же, а не перетасоваться заново

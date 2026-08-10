@@ -1,6 +1,6 @@
 import quiz
 from data import (
-    QUESTION, QUESTION_COUNTER, STREAK_COUNTER, STREAK_FRESH, STREAK_RECORD, STREAK_RESULTS,
+    QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER, STREAK_FRESH, STREAK_RECORD, STREAK_RESULTS,
     STREAK_TITLE, STREAK_TITLE_ZERO, VERDICTS,
 )
 
@@ -11,13 +11,17 @@ def question_caption(session: dict) -> str:
     библиотеку. Показываем обратное: сколько уже взято подряд. На первом
     вопросе счёт нулевой, и строчка только мешала бы.
     """
+    # реплику выбирает send_question и кладёт в сессию: подпись рисуется заново,
+    # когда открывают спрятанные варианты, и текст не должен при этом меняться
+    question = session.get("question") or QUESTION_VARIANTS[0]
+
     if session.get("mode") == quiz.STREAK:
         taken = session["position"]
-        return f"{STREAK_COUNTER.format(length=taken)}\n\n{QUESTION}" if taken else QUESTION
+        return f"{STREAK_COUNTER.format(length=taken)}\n\n{question}" if taken else question
 
     return "{}\n\n{}".format(
         QUESTION_COUNTER.format(number=session["position"] + 1, total=len(session["queue"])),
-        QUESTION,
+        question,
     )
 
 def streak_message(length: int, best: int, fresh: list[str] = ()) -> str:

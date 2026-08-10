@@ -1,5 +1,6 @@
 import progress
 import quiz
+from data import QUESTION_VARIANTS
 
 CARDS = [
     {"id": "france-capital", "title": "Париж"},
@@ -267,3 +268,25 @@ def test_first_time_keeps_the_order_of_the_quiz():
 
     assert progress.first_time(session) == ["c", "a"]
 
+
+def test_question_caption_uses_the_line_chosen_for_this_card():
+    session = quiz.session_for(["a", "b"])
+    session["question"] = "🎵 Не благодарите."
+
+    assert "🎵 Не благодарите." in progress.question_caption(session)
+
+def test_question_caption_survives_a_session_without_a_chosen_line():
+    # сессии, пережившие перезапуск бота, лежат в pickle без этого поля
+    session = quiz.session_for(["a", "b"])
+
+    assert progress.question_caption(session).endswith(QUESTION_VARIANTS[0])
+
+def test_question_caption_keeps_the_line_in_a_streak():
+    session = quiz.session_for(["a", "b"], mode=quiz.STREAK)
+    session["question"] = "🎵 Красивый выбор. Мой."
+    session["position"] = 3
+
+    caption = progress.question_caption(session)
+
+    assert "🔥 3 подряд" in caption
+    assert caption.endswith("🎵 Красивый выбор. Мой.")
