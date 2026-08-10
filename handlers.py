@@ -380,7 +380,8 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎲 Ещё квиз", callback_data="restart")]
+            [InlineKeyboardButton("🎲 Ещё квиз", callback_data="restart")],
+            [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")],
         ]),
         message_effect_id=CONFETTI_EFFECT if correct_count == total else None,
     )
@@ -436,6 +437,7 @@ async def finish_streak(update: Update, context: ContextTypes.DEFAULT_TYPE, leng
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🔥 Ещё серия", callback_data="streak")],
             [InlineKeyboardButton("🎲 Случайный квиз", callback_data="restart")],
+            [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")],
         ]),
         message_effect_id=FIRE_EFFECT if length > was_best else None,
     )
