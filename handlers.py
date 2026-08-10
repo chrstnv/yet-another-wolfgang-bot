@@ -1,3 +1,4 @@
+import asyncio
 import html
 import logging
 import random
@@ -57,18 +58,32 @@ async def acknowledge(query) -> None:
     except BadRequest:
         pass
 
-async def unchanged_is_fine(edit) -> None:
-    """Правка, которая ничего не меняет, для Телеграма ошибка.
+# сколько раз пробовать достучаться до Телеграма, прежде чем сдаться
+ATTEMPTS = 3
 
-    Случается на двойном нажатии: кнопки уже сняты или варианты уже открыты,
-    и второй запрос отправляет ровно то же, что там лежит. Делать после этого
-    нечего, а падать не за чем.
+async def telegram_call(call, attempts: int = ATTEMPTS, pause: float = 1.0):
+    """Обращение к Телеграму с повтором на сетевых сбоях.
+
+    Принимает функцию, а не готовую корутину: корутину нельзя ждать дважды,
+    а повтору нужен свежий вызов.
+
+    Соединение обрывается на установке — до Телеграма запрос не доходит,
+    и повторить его безопасно. Правка, которая ничего не меняет, тоже
+    считается ошибкой: так бывает на двойном нажатии, когда кнопки уже
+    сняты, и делать после неё нечего.
     """
-    try:
-        await edit
-    except BadRequest as error:
-        if "not modified" not in str(error).lower():
+    for attempt in range(1, attempts + 1):
+        try:
+            return await call()
+        except BadRequest as error:
+            if "not modified" in str(error).lower():
+                return None
             raise
+        except (TimedOut, NetworkError) as error:
+            if attempt == attempts:
+                raise
+            LOGGER.warning("Телеграм не отозвался (%s), попытка %d", error, attempt + 1)
+            await asyncio.sleep(pause * attempt)
 
 async def remove_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
     try:
@@ -95,7 +110,7 @@ async def dismiss_tap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     query = update.callback_query
     if query:
         await acknowledge(query)
-        await unchanged_is_fine(query.edit_message_reply_markup(reply_markup=None))
+        await telegram_call(lambda: query.edit_message_reply_markup(reply_markup=None))
 
 async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Убирает из чата все аудиосообщения, что бот успел прислать.
@@ -159,7 +174,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         else options_keyboard(session["options"], library["by_id"])
     )
 
-    message = await context.bot.send_audio(
+    message = await telegram_call(lambda: context.bot.send_audio(
         chat_id=update.effective_chat.id,
         audio=fragment["audio_file_id"],
         caption=progress.question_caption(session),
@@ -167,7 +182,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         reply_markup=keyboard,
         title="🎵 Фрагмент",
         performer=quiz.recording_of(card, fragment)["performer"],
-    )
+    ))
     session["message_id"] = message.message_id
     storage.save_sent_audio(
         context.bot_data["db"], update.effective_user.id, message.message_id
@@ -181,7 +196,7 @@ async def expire(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     query = update.callback_query
     await query.answer(QUIZ_EXPIRED, show_alert=True)
-    await unchanged_is_fine(query.edit_message_reply_markup(reply_markup=None))
+    await telegram_call(lambda: query.edit_message_reply_markup(reply_markup=None))
 
 async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -194,7 +209,7 @@ async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if query.message.message_id != session["message_id"]:
         return
 
-    await unchanged_is_fine(query.edit_message_reply_markup(
+    await telegram_call(lambda: query.edit_message_reply_markup(
         reply_markup=options_keyboard(session["options"], context.bot_data["library"]["by_id"])
     ))
 
@@ -236,7 +251,7 @@ async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.answer(SETTINGS_TOAST[hidden])
 
     text, keyboard = settings_view(hidden)
-    await unchanged_is_fine(query.edit_message_text(text, reply_markup=keyboard))
+    await telegram_call(lambda: query.edit_message_text(text, reply_markup=keyboard))
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -409,7 +424,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
     fragment = session["fragment"] if session["fragment"] not in card["title"] else ""
 
-    await query.edit_message_caption(
+    await telegram_call(lambda: query.edit_message_caption(
         caption=progress.answer_caption(
             naming=naming,
             description=card.get("description", ""),
@@ -425,7 +440,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("Дальше →", callback_data="next")]
         ]),
-    )
+    ))
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(GREETING, reply_markup=MENU_KEYBOARD)
