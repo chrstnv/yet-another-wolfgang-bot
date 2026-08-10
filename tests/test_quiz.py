@@ -249,3 +249,43 @@ def test_start_session_puts_unlabelled_cards_last():
     queue = quiz.start_session(GRADED, length=len(GRADED))["queue"]
 
     assert queue[-1] == "unlabelled"
+
+VARIANTS = ["первая", "вторая", "третья", "четвёртая"]
+
+def test_next_question_spends_every_variant_before_repeating():
+    session = quiz.session_for(["a"])
+
+    drawn = [quiz.next_question(session, VARIANTS) for _ in range(len(VARIANTS))]
+
+    assert sorted(drawn) == sorted(VARIANTS)
+
+def test_next_question_refills_the_bag_when_it_runs_out():
+    session = quiz.session_for(["a"])
+
+    drawn = [quiz.next_question(session, VARIANTS) for _ in range(len(VARIANTS) * 3)]
+
+    assert Counter(drawn) == Counter({variant: 3 for variant in VARIANTS})
+
+def test_next_question_does_not_repeat_across_a_refill():
+    for _ in range(50):
+        session = quiz.session_for(["a"])
+        drawn = []
+        for _ in range(len(VARIANTS) * 2):
+            drawn.append(quiz.next_question(session, VARIANTS))
+            session["question"] = drawn[-1]
+
+        assert all(a != b for a, b in zip(drawn, drawn[1:]))
+
+def test_next_question_shuffles_the_bag():
+    orders = set()
+    for _ in range(50):
+        session = quiz.session_for(["a"])
+        orders.add(tuple(quiz.next_question(session, VARIANTS) for _ in range(len(VARIANTS))))
+
+    assert len(orders) > 1
+
+def test_next_question_copes_with_a_single_variant():
+    session = quiz.session_for(["a"])
+
+    assert quiz.next_question(session, ["одна"]) == "одна"
+    assert quiz.next_question(session, ["одна"]) == "одна"

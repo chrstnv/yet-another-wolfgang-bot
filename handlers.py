@@ -98,7 +98,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     fragment = quiz.pick_fragment(card)
     session["fragment"] = fragment["name"]
     session["recording"] = quiz.recording_of(card, fragment)
-    session["question"] = random.choice(QUESTION_VARIANTS)
+    session["question"] = quiz.next_question(session, QUESTION_VARIANTS)
 
     # варианты выбираются один раз: если открывать их кнопкой, набор должен
     # остаться тем же, а не перетасоваться заново

@@ -57,6 +57,27 @@ def streak_queue(cards: list[dict], step: int = STREAK_STEP) -> list[str]:
 
     return queue + rest
 
+def next_question(session: dict, variants: list[str]) -> str:
+    """Следующая реплика из перетасованной колоды.
+
+    Независимый выбор из двенадцати строчек давал на десяти вопросах в среднем
+    семь разных, и повторы шли подряд — то есть возвращали ровно то ощущение
+    системного сообщения, от которого реплики и заводились. Колода тратит все
+    варианты прежде, чем начать заново.
+    """
+    bag = session.get("questions") or []
+
+    if not bag:
+        bag = list(variants)
+        random.shuffle(bag)
+        # на стыке колод одна и та же строчка иначе может прозвучать дважды подряд
+        if len(bag) > 1 and bag[-1] == session.get("question"):
+            bag[0], bag[-1] = bag[-1], bag[0]
+
+    session["questions"] = bag
+
+    return bag.pop()
+
 def current_card_id(session: dict) -> str:
     return session["queue"][session["position"]]
 
