@@ -211,6 +211,7 @@ async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await expire(update, context)
         return
     if query.message.message_id != session["message_id"]:
+        await acknowledge(query)
         return
 
     await telegram_call(lambda: query.edit_message_reply_markup(
@@ -266,6 +267,7 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await expire(update, context)
         return
     if query.message.message_id != session["message_id"]:
+        await acknowledge(query)
         return
 
     await delete_screen(update, context, session["message_id"])
@@ -404,6 +406,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await expire(update, context)
         return
     if quiz.is_answered(session):
+        await acknowledge(query)
         return
 
     _, chosen_id = query.data.split(":")
