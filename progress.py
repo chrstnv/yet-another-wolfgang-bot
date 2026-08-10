@@ -24,18 +24,17 @@ def question_caption(session: dict) -> str:
         question,
     )
 
-DECADE = 10
-# ниже двадцати рекорды переписываются почти каждой серией, и особая реплика
-# на них обесценилась бы; десятки — первый рубеж, который берут не случайно
-FIRST_MILESTONE = 20
+# насколько рекорд должен подрасти, чтобы прибавку стоило отмечать отдельно
+BIG_JUMP = 10
 
-def jumped_a_decade(length: int, best: int) -> bool:
-    """Рекорд не просто побит, а перешагнул очередной десяток.
+def beat_the_record_by_far(length: int, best: int) -> bool:
+    """Рекорд побит не на единицу, а с запасом.
 
-    Разница между 21 и 22 игроку не заметна, между 19 и 21 — заметна: сменилась
-    первая цифра. На это и смотрим, а не на размер прибавки.
+    Смотрим на саму прибавку. Рекорд обычно растёт по чуть-чуть, и каждая такая
+    серия — формально рекордная; отдельной реплики заслуживает та, где прежний
+    результат не подвинули, а оставили далеко позади.
     """
-    return length >= FIRST_MILESTONE and length // DECADE > best // DECADE
+    return length - best >= BIG_JUMP
 
 def streak_message(length: int, best: int, fresh: list[str] = ()) -> str:
     """Итог серии: счёт крупно, следом чем она кончилась, рекорд и находки.
@@ -51,7 +50,7 @@ def streak_message(length: int, best: int, fresh: list[str] = ()) -> str:
         key = "some"
 
     verdict_line = STREAK_RESULTS[key]
-    if key == "record" and jumped_a_decade(length, best):
+    if key == "record" and beat_the_record_by_far(length, best):
         verdict_line = STREAK_NEW_RECORD_PLUS
 
     blocks = [

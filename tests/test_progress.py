@@ -292,26 +292,26 @@ def test_question_caption_keeps_the_line_in_a_streak():
     assert "🔥 3 подряд" in caption
     assert caption.endswith("🎵 Красивый выбор. Мой.")
 
-@pytest.mark.parametrize("length, best, jumped", [
-    (21, 18, True),    # сменилась первая цифра
-    (20, 19, True),
-    (25, 21, False),   # тот же десяток
-    (31, 25, True),
-    (9, 4, False),     # до двадцати особой реплики нет
-    (19, 0, False),
-    (20, 0, True),
+@pytest.mark.parametrize("length, best, by_far", [
+    (28, 18, True),    # прибавка ровно в порог
+    (30, 18, True),
+    (21, 18, False),   # рекорд, но подвинутый на три
+    (25, 21, False),
+    (31, 25, False),
+    (12, 0, True),     # с нуля сразу далеко
+    (9, 0, False),
 ])
-def test_jumped_a_decade(length, best, jumped):
-    assert progress.jumped_a_decade(length, best) is jumped
+def test_beat_the_record_by_far(length, best, by_far):
+    assert progress.beat_the_record_by_far(length, best) is by_far
 
-def test_streak_message_marks_a_record_that_crossed_a_decade():
+def test_streak_message_marks_a_record_beaten_by_far():
+    text = progress.streak_message(30, best=18)
+
+    assert STREAK_NEW_RECORD_PLUS.format(length=30) in text
+    assert STREAK_RESULTS["record"].format(length=30) not in text
+
+def test_streak_message_keeps_the_plain_record_line_for_a_small_gain():
     text = progress.streak_message(21, best=18)
 
-    assert STREAK_NEW_RECORD_PLUS.format(length=21) in text
-    assert STREAK_RESULTS["record"].format(length=21) not in text
-
-def test_streak_message_keeps_the_plain_record_line_inside_a_decade():
-    text = progress.streak_message(25, best=21)
-
-    assert STREAK_RESULTS["record"].format(length=25) in text
-    assert STREAK_NEW_RECORD_PLUS.format(length=25) not in text
+    assert STREAK_RESULTS["record"].format(length=21) in text
+    assert STREAK_NEW_RECORD_PLUS.format(length=21) not in text
