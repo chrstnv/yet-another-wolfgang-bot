@@ -2,7 +2,7 @@ import html
 import random
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.error import TelegramError
+from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
 import progress
@@ -22,6 +22,19 @@ from keyboards import MENU_KEYBOARD
 # достижения разные, и ощущаться должны по-разному.
 CONFETTI_EFFECT = "5046509860389126442"
 FIRE_EFFECT = "5104841245755180586"
+
+async def acknowledge(query) -> None:
+    """Гасит «часики» на нажатой кнопке.
+
+    Ответить на нажатие Телеграм разрешает лишь несколько секунд. Если бот в
+    этот момент перезапускался или лежал, нажатие приезжает уже просроченным —
+    и «часики» гаснут сами. Ронять из-за этого весь обработчик незачем: всё
+    остальное, что делает кнопка, сделать по-прежнему можно.
+    """
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
 async def remove_message(update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int) -> None:
     try:
@@ -47,7 +60,7 @@ async def dismiss_tap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     query = update.callback_query
     if query:
-        await query.answer()
+        await acknowledge(query)
         await query.edit_message_reply_markup(reply_markup=None)
 
 async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -138,7 +151,7 @@ async def expire(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await query.answer()
+    await acknowledge(query)
 
     session = context.user_data.get("quiz")
     if not session:
@@ -164,7 +177,7 @@ def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
 
 async def close_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await query.answer()
+    await acknowledge(query)
 
     await remove_message(update, context, query.message.message_id)
 
@@ -193,7 +206,7 @@ async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await query.answer()
+    await acknowledge(query)
 
     session = context.user_data.get("quiz")
     if not session:
@@ -330,7 +343,7 @@ async def restart_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await query.answer()
+    await acknowledge(query)
 
     session = context.user_data.get("quiz")
     if not session:
