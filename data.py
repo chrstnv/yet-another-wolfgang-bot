@@ -99,12 +99,14 @@ QUESTION_VARIANTS = [
     "🎵 Тут я, как всегда, не ошибся.",
 ]
 
-# итог и название идут первыми и одной фразой: подпись длинная, и до
-# разворачивания видно только начало — там должно стоять то, ради чего
-# человек нажимал кнопку, а не реакция Вольфганга
-ANSWER_CORRECT = "✅ Верно! Это {naming}."
-ANSWER_CORRECT_STREAK = "✅ Верно, 🔥 {length} подряд! Это {naming}."
-ANSWER_WRONG = "❌ Это {naming}, а не «{chosen}»."
+# верно или нет, говорит галочка, а словами это говорит сам Вольфганг:
+# отдельное «Верно!» перед его репликой было бы тем же самым дважды
+ANSWER_CORRECT = "✅ {reply}"
+ANSWER_CORRECT_STREAK = "✅ {reply} 🔥 {length} подряд."
+ANSWER_WRONG = "❌ {reply}"
+
+ANSWER_NAMING = "Это {naming}."
+ANSWER_NAMING_WRONG = "Это {naming}, а не {chosen}."
 
 ANSWER_DESCRIPTION = "🎼 {description}"
 ANSWER_FRAGMENT = "🎵 {fragment}"

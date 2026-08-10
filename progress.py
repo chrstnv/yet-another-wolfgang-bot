@@ -1,7 +1,8 @@
 import quiz
 from data import (
     ANSWER_CORRECT, ANSWER_CORRECT_STREAK, ANSWER_DESCRIPTION, ANSWER_FACT, ANSWER_FRAGMENT,
-    ANSWER_RECORDING, ANSWER_WRONG, QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER,
+    ANSWER_NAMING, ANSWER_NAMING_WRONG, ANSWER_RECORDING, ANSWER_WRONG,
+    QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER,
     STREAK_FRESH, STREAK_NEW_RECORD_PLUS, STREAK_RECORD, STREAK_RESULTS, STREAK_TITLE,
     STREAK_TITLE_ZERO, VERDICTS,
 )
@@ -155,21 +156,22 @@ def answer_caption(
 ) -> str:
     """Подпись к отвеченному вопросу.
 
-    Порядок продиктован тем, что видно до разворачивания: сначала итог и что
-    это было — ради этого кнопку и нажимали. Реплика, факт и кредит записи
-    уезжают ниже, их можно прочитать и потом.
+    Порядок продиктован тем, что видно до разворачивания. Первой строкой
+    говорит Вольфганг — верно или нет, уже видно по значку, — а следом идёт
+    то, ради чего кнопку нажимали: что это было.
 
-    Название с описанием стоят вплотную, без пустой строки: вместе они
-    читаются как одна фраза, а каждая пустая строка — это строка экрана.
+    Всё это стоит вплотную, без пустых строк: вместе читается как одна фраза,
+    а каждая пустая строка — это строка экрана.
     """
     if not correct:
-        head = ANSWER_WRONG.format(naming=naming, chosen=chosen)
-    elif streak:
-        head = ANSWER_CORRECT_STREAK.format(naming=naming, length=streak)
+        opening = [ANSWER_WRONG.format(reply=reply), ANSWER_NAMING_WRONG.format(naming=naming, chosen=chosen)]
     else:
-        head = ANSWER_CORRECT.format(naming=naming)
+        verdict_line = (
+            ANSWER_CORRECT_STREAK.format(reply=reply, length=streak) if streak
+            else ANSWER_CORRECT.format(reply=reply)
+        )
+        opening = [verdict_line, ANSWER_NAMING.format(naming=naming)]
 
-    opening = [head]
     if description:
         opening.append(ANSWER_DESCRIPTION.format(description=description))
     # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
@@ -178,7 +180,6 @@ def answer_caption(
 
     return "\n\n".join([
         "\n".join(opening),
-        reply,
         ANSWER_FACT.format(fact=fact),
         ANSWER_RECORDING.format(**recording),
     ])

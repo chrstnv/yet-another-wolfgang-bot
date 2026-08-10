@@ -331,16 +331,16 @@ def caption(**overrides):
 
     return progress.answer_caption(**{**defaults, **overrides})
 
-def test_answer_caption_opens_with_the_verdict_and_the_name():
-    assert caption().startswith("✅ Верно! Это Бизе — Хабанера из «Кармен».")
+def test_answer_caption_opens_with_wolfgang_speaking():
+    assert caption().startswith("✅ Реплика.\nЭто Бизе — Хабанера из «Кармен».")
 
 def test_answer_caption_names_the_work_before_the_mistake():
     text = caption(correct=False, chosen="Верди — «Аида»")
 
-    assert text.startswith("❌ Это Бизе — Хабанера из «Кармен», а не «Верди — «Аида»».")
+    assert text.startswith("❌ Реплика.\nЭто Бизе — Хабанера из «Кармен», а не Верди — «Аида».")
 
-def test_answer_caption_counts_the_streak_in_the_first_line():
-    assert caption(streak=7).startswith("✅ Верно, 🔥 7 подряд!")
+def test_answer_caption_counts_the_streak_beside_the_reply():
+    assert caption(streak=7).startswith("✅ Реплика. 🔥 7 подряд.")
 
 def test_answer_caption_keeps_the_description_against_the_name():
     # без пустой строки: вместе они читаются как одна фраза
@@ -358,7 +358,5 @@ def test_answer_caption_names_the_fragment_only_when_given():
 def test_answer_caption_ends_with_the_credit():
     assert caption().endswith("🎧 Кто-то — Откуда-то")
 
-def test_answer_caption_puts_the_reply_after_the_facts_of_the_matter():
-    text = caption()
-
-    assert text.index("Это Бизе") < text.index("Реплика.") < text.index("💡 Факт.")
+def test_answer_caption_says_the_reply_once():
+    assert caption().count("Реплика.") == 1
