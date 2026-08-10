@@ -63,10 +63,13 @@ async def acknowledge(query, text: str | None = None, show_alert: bool = False) 
     except TelegramError:
         pass
 
-# сколько раз пробовать достучаться до Телеграма, прежде чем сдаться
+# сколько раз пробовать достучаться до Телеграма и сколько ждать между попытками.
+# Три попытки по пять секунд с короткими паузами укладываются в пятнадцать секунд —
+# ровно столько живёт нажатие, дольше держать пользователя не за чем
 ATTEMPTS = 3
+PAUSE = 0.25
 
-async def telegram_call(call, attempts: int = ATTEMPTS, pause: float = 1.0):
+async def telegram_call(call, attempts: int = ATTEMPTS, pause: float = PAUSE):
     """Обращение к Телеграму с повтором на сетевых сбоях.
 
     Принимает функцию, а не готовую корутину: корутину нельзя ждать дважды,
