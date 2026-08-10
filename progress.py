@@ -171,18 +171,24 @@ def answer_caption(
     if not correct:
         verdict = ANSWER_WRONG.format(reply=reply)
         naming_line = ANSWER_NAMING_MOZART_WRONG if mozart else ANSWER_NAMING_WRONG
+        # между названием и описанием тут стоит чужое имя, и запятая привязала бы
+        # описание к нему; поэтому в промахе фраза остаётся разделённой точкой
         about = [naming_line.format(naming=naming, chosen=chosen)]
+        if description:
+            about.append(ANSWER_DESCRIPTION.format(description=description))
     else:
         verdict = (
             ANSWER_CORRECT_STREAK.format(reply=reply, length=streak) if streak
             else ANSWER_CORRECT.format(reply=reply)
         )
-        about = [(ANSWER_NAMING_MOZART if mozart else ANSWER_NAMING).format(naming=naming)]
-
-    if description:
-        # название и описание — одно предложение через точку, а не две строки:
-        # перенос между ними разрывал фразу там, где её читают слитно
-        about.append(ANSWER_DESCRIPTION.format(description=description))
+        naming_line = (ANSWER_NAMING_MOZART if mozart else ANSWER_NAMING).format(naming=naming)
+        # название и описание — одна фраза через запятую, а не две рубленые:
+        # описание всегда начинается с нарицательного, так что строчная безопасна
+        if description:
+            naming_line += ", " + description[0].lower() + description[1:]
+        else:
+            naming_line += "."
+        about = [naming_line]
 
     lines = [" ".join(about)]
     # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем

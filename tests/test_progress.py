@@ -332,7 +332,7 @@ def caption(**overrides):
     return progress.answer_caption(**{**defaults, **overrides})
 
 def test_answer_caption_opens_with_wolfgang_speaking():
-    assert caption().startswith("✅ Реплика.\n\nЭто Бизе — Хабанера из «Кармен».")
+    assert caption().startswith("✅ Реплика.\n\nЭто Бизе — Хабанера из «Кармен», выходная ария")
 
 def test_answer_caption_names_the_work_before_the_mistake():
     text = caption(correct=False, chosen="Верди — «Аида»")
@@ -346,10 +346,10 @@ def test_answer_caption_runs_the_description_on_from_the_name():
     # одной строкой: вместе они читаются как одна фраза
     text = caption()
 
-    assert "Кармен». Выходная ария" in text
+    assert "Кармен», выходная ария Кармен в первом акте." in text
 
 def test_answer_caption_skips_the_description_when_there_is_none():
-    assert caption(description="").startswith("✅ Реплика.\n\nЭто Бизе")
+    assert caption(description="").startswith("✅ Реплика.\n\nЭто Бизе — Хабанера из «Кармен».")
 
 def test_answer_caption_names_the_fragment_only_when_given():
     assert "🎵 Адажио" in caption(fragment="Адажио")
@@ -370,7 +370,7 @@ def test_answer_caption_leaves_the_credit_alone_without_a_licence():
     assert caption().endswith("🎧 Кто-то — Откуда-то")
 
 def test_answer_caption_lets_mozart_own_his_music():
-    assert "Это, разумеется, я — Хабанера" in caption(naming="Хабанера", mozart=True)
+    assert "Это, разумеется, я — Хабанера, выходная ария" in caption(naming="Хабанера", mozart=True)
 
 def test_answer_caption_mozart_owns_it_even_when_missed():
     text = caption(naming="Симфония №40", mozart=True, correct=False, chosen="Гайдн — «Времена года»")

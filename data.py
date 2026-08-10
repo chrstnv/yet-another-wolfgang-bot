@@ -105,11 +105,11 @@ ANSWER_CORRECT = "✅ {reply}"
 ANSWER_CORRECT_STREAK = "✅ {reply} 🔥 {length} подряд."
 ANSWER_WRONG = "❌ {reply}"
 
-ANSWER_NAMING = "Это {naming}."
+ANSWER_NAMING = "Это {naming}"
 ANSWER_NAMING_WRONG = "Это {naming}, а не {chosen}."
 
 # на собственной музыке Вольфганг не представляет автора, а признаётся
-ANSWER_NAMING_MOZART = "Это, разумеется, я — {naming}."
+ANSWER_NAMING_MOZART = "Это, разумеется, я — {naming}"
 ANSWER_NAMING_MOZART_WRONG = "А это был я — {naming}. Вы же выбрали {chosen}."
 
 ANSWER_DESCRIPTION = "{description}"
