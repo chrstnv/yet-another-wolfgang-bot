@@ -1,6 +1,7 @@
 import progress
+import pytest
 import quiz
-from data import QUESTION_VARIANTS
+from data import QUESTION_VARIANTS, STREAK_NEW_RECORD_PLUS, STREAK_RESULTS, VERDICTS
 
 CARDS = [
     {"id": "france-capital", "title": "Париж"},
@@ -131,15 +132,15 @@ def test_weakest_respects_the_limit():
     assert len(progress.weakest(answers, CARDS_BY_ID, limit=2)) == 2
 
 def test_verdict_celebrates_a_perfect_run():
-    assert progress.verdict(4, 4).startswith("Идеально")
+    assert progress.verdict(4, 4) == VERDICTS["perfect"].format(correct=4, total=4)
 
 def test_verdict_is_encouraging_from_half_and_up():
-    assert "Ухо уже кое-что помнит" in progress.verdict(2, 4)
-    assert "Ухо уже кое-что помнит" in progress.verdict(3, 4)
+    assert progress.verdict(2, 4) == VERDICTS["good"].format(correct=2, total=4)
+    assert progress.verdict(3, 4) == VERDICTS["good"].format(correct=3, total=4)
 
 def test_verdict_softens_a_weak_run():
-    assert "дело наживное" in progress.verdict(1, 4)
-    assert "дело наживное" in progress.verdict(0, 4)
+    assert progress.verdict(1, 4) == VERDICTS["weak"].format(correct=1, total=4)
+    assert progress.verdict(0, 4) == VERDICTS["weak"].format(correct=0, total=4)
 
 def test_verdict_shows_the_numbers():
     assert "3 из 5" in progress.verdict(3, 5)
@@ -192,7 +193,7 @@ def test_streak_message_adds_the_previous_record():
 def test_streak_message_says_nothing_about_the_previous_record_when_it_is_beaten():
     text = progress.streak_message(9, best=7)
 
-    assert "столько у вас ещё не было" in text
+    assert STREAK_RESULTS["record"].format(length=9) in text
     assert "7" not in text
 
 def test_streak_message_skips_the_record_line_for_the_first_ever_run():
@@ -221,7 +222,7 @@ def test_streak_message_headline_survives_a_run_of_nothing():
 def test_streak_message_shows_the_record_after_a_zero_run():
     text = progress.streak_message(0, best=4)
 
-    assert "Первый же" in text
+    assert STREAK_RESULTS["zero"] in text
     assert "4" in text
 
 def test_question_caption_counts_questions_in_a_quiz():
@@ -290,3 +291,27 @@ def test_question_caption_keeps_the_line_in_a_streak():
 
     assert "🔥 3 подряд" in caption
     assert caption.endswith("🎵 Красивый выбор. Мой.")
+
+@pytest.mark.parametrize("length, best, jumped", [
+    (21, 18, True),    # сменилась первая цифра
+    (20, 19, True),
+    (25, 21, False),   # тот же десяток
+    (31, 25, True),
+    (9, 4, False),     # до двадцати особой реплики нет
+    (19, 0, False),
+    (20, 0, True),
+])
+def test_jumped_a_decade(length, best, jumped):
+    assert progress.jumped_a_decade(length, best) is jumped
+
+def test_streak_message_marks_a_record_that_crossed_a_decade():
+    text = progress.streak_message(21, best=18)
+
+    assert STREAK_NEW_RECORD_PLUS.format(length=21) in text
+    assert STREAK_RESULTS["record"].format(length=21) not in text
+
+def test_streak_message_keeps_the_plain_record_line_inside_a_decade():
+    text = progress.streak_message(25, best=21)
+
+    assert STREAK_RESULTS["record"].format(length=25) in text
+    assert STREAK_NEW_RECORD_PLUS.format(length=25) not in text

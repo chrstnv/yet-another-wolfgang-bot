@@ -57,26 +57,43 @@ def streak_queue(cards: list[dict], step: int = STREAK_STEP) -> list[str]:
 
     return queue + rest
 
-def next_question(session: dict, variants: list[str]) -> str:
+def next_line(session: dict, name: str, variants: list[str]) -> str:
     """Следующая реплика из перетасованной колоды.
 
     Независимый выбор из двенадцати строчек давал на десяти вопросах в среднем
     семь разных, и повторы шли подряд — то есть возвращали ровно то ощущение
     системного сообщения, от которого реплики и заводились. Колода тратит все
     варианты прежде, чем начать заново.
-    """
-    bag = session.get("questions") or []
 
-    if not bag:
+    Колод несколько, по одной на набор: вопросы, похвала, попрёки. У каждой своя
+    очередь, иначе редкий набор вычерпывался бы вслед за частым.
+    """
+    deck = session.setdefault("decks", {}).setdefault(name, {"bag": [], "last": None})
+
+    if not deck["bag"]:
         bag = list(variants)
         random.shuffle(bag)
         # на стыке колод одна и та же строчка иначе может прозвучать дважды подряд
-        if len(bag) > 1 and bag[-1] == session.get("question"):
+        if len(bag) > 1 and bag[-1] == deck["last"]:
             bag[0], bag[-1] = bag[-1], bag[0]
+        deck["bag"] = bag
 
-    session["questions"] = bag
+    deck["last"] = deck["bag"].pop()
 
-    return bag.pop()
+    return deck["last"]
+
+MOZART = "Моцарт"
+
+def reply_deck(card: dict, correct: bool) -> str:
+    """Какой колодой отвечать на этот ответ.
+
+    Вольфганг говорит о себе в третьем лице, и на своей же музыке ему положено
+    хвалить не столько игрока, сколько выбор композитора.
+    """
+    if not correct:
+        return "wrong"
+
+    return "correct-mozart" if card.get("composer") == MOZART else "correct"
 
 def current_card_id(session: dict) -> str:
     return session["queue"][session["position"]]

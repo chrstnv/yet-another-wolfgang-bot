@@ -10,7 +10,8 @@ import quiz
 import storage
 from data import (
     CLOSE_BUTTON, GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
-    PROGRESS_TITLE, PROGRESS_WEAKEST, QUESTION_VARIANTS, QUIZ_EXPIRED, REVEAL_ANSWERS, SETTINGS,
+    PROGRESS_TITLE, PROGRESS_WEAKEST, QUESTION_VARIANTS, QUIZ_EXPIRED, REPLY_DECKS,
+    REVEAL_ANSWERS, SETTINGS,
     SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
 from keyboards import MENU_KEYBOARD
@@ -98,7 +99,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     fragment = quiz.pick_fragment(card)
     session["fragment"] = fragment["name"]
     session["recording"] = quiz.recording_of(card, fragment)
-    session["question"] = quiz.next_question(session, QUESTION_VARIANTS)
+    session["question"] = quiz.next_line(session, "question", QUESTION_VARIANTS)
 
     # варианты выбираются один раз: если открывать их кнопкой, набор должен
     # остаться тем же, а не перетасоваться заново
@@ -345,13 +346,19 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     quiz.record_answer(session, card_id, chosen_id)
     storage.save_answer(context.bot_data["db"], update.effective_user.id, card_id, chosen_id)
 
-    if chosen_id == card_id:
+    correct = chosen_id == card_id
+    deck = quiz.reply_deck(card, correct)
+    reply = quiz.next_line(session, deck, REPLY_DECKS[deck])
+
+    if correct:
         result = "✅ Верно!"
         if session.get("mode") == quiz.STREAK:
             result += f" 🔥 {quiz.score(session)} подряд."
     else:
         chosen = context.bot_data["library"]["by_id"][chosen_id]["title"]
         result = f"❌ Неправильно. Вы выбрали «{chosen}»."
+
+    result += f"\n\n{reply}"
 
     fact = random.choice(card["facts"])
 

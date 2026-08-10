@@ -252,40 +252,57 @@ def test_start_session_puts_unlabelled_cards_last():
 
 VARIANTS = ["первая", "вторая", "третья", "четвёртая"]
 
-def test_next_question_spends_every_variant_before_repeating():
+def test_next_line_spends_every_variant_before_repeating():
     session = quiz.session_for(["a"])
 
-    drawn = [quiz.next_question(session, VARIANTS) for _ in range(len(VARIANTS))]
+    drawn = [quiz.next_line(session, "реплики", VARIANTS) for _ in range(len(VARIANTS))]
 
     assert sorted(drawn) == sorted(VARIANTS)
 
-def test_next_question_refills_the_bag_when_it_runs_out():
+def test_next_line_refills_the_bag_when_it_runs_out():
     session = quiz.session_for(["a"])
 
-    drawn = [quiz.next_question(session, VARIANTS) for _ in range(len(VARIANTS) * 3)]
+    drawn = [quiz.next_line(session, "реплики", VARIANTS) for _ in range(len(VARIANTS) * 3)]
 
     assert Counter(drawn) == Counter({variant: 3 for variant in VARIANTS})
 
-def test_next_question_does_not_repeat_across_a_refill():
+def test_next_line_does_not_repeat_across_a_refill():
     for _ in range(50):
         session = quiz.session_for(["a"])
         drawn = []
         for _ in range(len(VARIANTS) * 2):
-            drawn.append(quiz.next_question(session, VARIANTS))
-            session["question"] = drawn[-1]
+            drawn.append(quiz.next_line(session, "реплики", VARIANTS))
 
         assert all(a != b for a, b in zip(drawn, drawn[1:]))
 
-def test_next_question_shuffles_the_bag():
+def test_next_line_shuffles_the_bag():
     orders = set()
     for _ in range(50):
         session = quiz.session_for(["a"])
-        orders.add(tuple(quiz.next_question(session, VARIANTS) for _ in range(len(VARIANTS))))
+        orders.add(tuple(quiz.next_line(session, "реплики", VARIANTS) for _ in range(len(VARIANTS))))
 
     assert len(orders) > 1
 
-def test_next_question_copes_with_a_single_variant():
+def test_next_line_copes_with_a_single_variant():
     session = quiz.session_for(["a"])
 
-    assert quiz.next_question(session, ["одна"]) == "одна"
-    assert quiz.next_question(session, ["одна"]) == "одна"
+    assert quiz.next_line(session, "реплики", ["одна"]) == "одна"
+    assert quiz.next_line(session, "реплики", ["одна"]) == "одна"
+
+def test_next_line_keeps_a_separate_deck_per_name():
+    session = quiz.session_for(["a"])
+
+    first = [quiz.next_line(session, "похвала", VARIANTS) for _ in range(2)]
+    quiz.next_line(session, "попрёки", VARIANTS)
+    first += [quiz.next_line(session, "похвала", VARIANTS) for _ in range(2)]
+
+    # чужая колода не должна расходовать эту
+    assert sorted(first) == sorted(VARIANTS)
+
+def test_reply_deck_praises_mozart_separately():
+    assert quiz.reply_deck({"composer": "Моцарт"}, correct=True) == "correct-mozart"
+    assert quiz.reply_deck({"composer": "Сальери"}, correct=True) == "correct"
+
+def test_reply_deck_scolds_the_same_whoever_wrote_it():
+    assert quiz.reply_deck({"composer": "Моцарт"}, correct=False) == "wrong"
+    assert quiz.reply_deck({"composer": "Сальери"}, correct=False) == "wrong"

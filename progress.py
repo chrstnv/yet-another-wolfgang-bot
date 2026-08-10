@@ -1,7 +1,7 @@
 import quiz
 from data import (
-    QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER, STREAK_FRESH, STREAK_RECORD, STREAK_RESULTS,
-    STREAK_TITLE, STREAK_TITLE_ZERO, VERDICTS,
+    QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER, STREAK_FRESH, STREAK_NEW_RECORD_PLUS,
+    STREAK_RECORD, STREAK_RESULTS, STREAK_TITLE, STREAK_TITLE_ZERO, VERDICTS,
 )
 
 def question_caption(session: dict) -> str:
@@ -24,6 +24,19 @@ def question_caption(session: dict) -> str:
         question,
     )
 
+DECADE = 10
+# ниже двадцати рекорды переписываются почти каждой серией, и особая реплика
+# на них обесценилась бы; десятки — первый рубеж, который берут не случайно
+FIRST_MILESTONE = 20
+
+def jumped_a_decade(length: int, best: int) -> bool:
+    """Рекорд не просто побит, а перешагнул очередной десяток.
+
+    Разница между 21 и 22 игроку не заметна, между 19 и 21 — заметна: сменилась
+    первая цифра. На это и смотрим, а не на размер прибавки.
+    """
+    return length >= FIRST_MILESTONE and length // DECADE > best // DECADE
+
 def streak_message(length: int, best: int, fresh: list[str] = ()) -> str:
     """Итог серии: счёт крупно, следом чем она кончилась, рекорд и находки.
 
@@ -37,9 +50,13 @@ def streak_message(length: int, best: int, fresh: list[str] = ()) -> str:
     else:
         key = "some"
 
+    verdict_line = STREAK_RESULTS[key]
+    if key == "record" and jumped_a_decade(length, best):
+        verdict_line = STREAK_NEW_RECORD_PLUS
+
     blocks = [
         STREAK_TITLE.format(length=length) if length else STREAK_TITLE_ZERO,
-        STREAK_RESULTS[key].format(length=length),
+        verdict_line.format(length=length),
     ]
 
     if key != "record" and best:
