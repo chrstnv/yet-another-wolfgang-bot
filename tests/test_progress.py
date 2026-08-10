@@ -332,12 +332,12 @@ def caption(**overrides):
     return progress.answer_caption(**{**defaults, **overrides})
 
 def test_answer_caption_opens_with_wolfgang_speaking():
-    assert caption().startswith("✅ Реплика.\nЭто Бизе — Хабанера из «Кармен».")
+    assert caption().startswith("✅ Реплика.\n\nЭто Бизе — Хабанера из «Кармен».")
 
 def test_answer_caption_names_the_work_before_the_mistake():
     text = caption(correct=False, chosen="Верди — «Аида»")
 
-    assert text.startswith("❌ Реплика.\nЭто Бизе — Хабанера из «Кармен», а не Верди — «Аида».")
+    assert text.startswith("❌ Реплика.\n\nЭто Бизе — Хабанера из «Кармен», а не Верди — «Аида».")
 
 def test_answer_caption_counts_the_streak_beside_the_reply():
     assert caption(streak=7).startswith("✅ Реплика. 🔥\u00a07\u00a0подряд.")
@@ -349,7 +349,7 @@ def test_answer_caption_keeps_the_description_against_the_name():
     assert "Кармен».\nВыходная ария" in text
 
 def test_answer_caption_skips_the_description_when_there_is_none():
-    assert caption(description="").startswith("✅ Реплика.\nЭто Бизе")
+    assert caption(description="").startswith("✅ Реплика.\n\nЭто Бизе")
 
 def test_answer_caption_names_the_fragment_only_when_given():
     assert "🎵 Адажио" in caption(fragment="Адажио")

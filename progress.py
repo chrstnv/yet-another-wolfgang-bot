@@ -161,26 +161,32 @@ def answer_caption(
     говорит Вольфганг — верно или нет, уже видно по значку, — а следом идёт
     то, ради чего кнопку нажимали: что это было.
 
-    Всё это стоит вплотную, без пустых строк: вместе читается как одна фраза,
-    а каждая пустая строка — это строка экрана.
+    Реплика отбита пустой строкой — это чужой голос, и он не должен слипаться
+    со справкой. А вот название, описание и фрагмент стоят вплотную друг к другу:
+    вместе они читаются как одна фраза, и каждая пустая строка внутри стоила бы
+    строки экрана.
     """
     if not correct:
-        opening = [ANSWER_WRONG.format(reply=reply), ANSWER_NAMING_WRONG.format(naming=naming, chosen=chosen)]
+        verdict = ANSWER_WRONG.format(reply=reply)
+        about = [ANSWER_NAMING_WRONG.format(naming=naming, chosen=chosen)]
     else:
-        verdict_line = (
+        verdict = (
             ANSWER_CORRECT_STREAK.format(reply=reply, length=streak) if streak
             else ANSWER_CORRECT.format(reply=reply)
         )
-        opening = [verdict_line, ANSWER_NAMING.format(naming=naming)]
+        about = [ANSWER_NAMING.format(naming=naming)]
 
     if description:
-        opening.append(ANSWER_DESCRIPTION.format(description=description))
+        about.append(ANSWER_DESCRIPTION.format(description=description))
     # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
     if fragment:
-        opening.append(ANSWER_FRAGMENT.format(fragment=fragment))
+        about.append(ANSWER_FRAGMENT.format(fragment=fragment))
+
+    credit = ANSWER_RECORDING_LICENSED if recording.get("license") else ANSWER_RECORDING
 
     return "\n\n".join([
-        "\n".join(opening),
+        verdict,
+        "\n".join(about),
         ANSWER_FACT.format(fact=fact),
-        (ANSWER_RECORDING_LICENSED if recording.get("license") else ANSWER_RECORDING).format(**recording),
+        credit.format(**recording),
     ])
