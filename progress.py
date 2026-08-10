@@ -175,22 +175,20 @@ def answer_caption(
         verdict = ANSWER_CORRECT.format(reply=reply)
         template = ANSWER_NAMING_MOZART if mozart else ANSWER_NAMING
 
+    # всё о прозвучавшем — одной фразой: название, фрагмент, описание. В промахе
+    # чужой ответ идёт после неё, иначе фрагмент и описание липнут к чужому имени
     naming_line = template.format(naming=naming)
-    # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем.
-    # Стоит он вплотную к названию: это часть того же произведения, и в промахе
-    # его нельзя отодвигать за чужой ответ — прицепится к нему
     if fragment:
         naming_line += ", " + ANSWER_FRAGMENT.format(fragment=fragment)
-
-    if correct:
-        # описание продолжает ту же фразу через запятую, а не начинает новую:
+    if description:
         # описание всегда начинается с нарицательного, так что строчная безопасна
-        naming_line += ", " + description[0].lower() + description[1:] if description else "."
-        about = [naming_line]
+        naming_line += ", " + description[0].lower() + description[1:]
     else:
-        about = [naming_line + ".", ANSWER_CHOSEN.format(chosen=chosen)]
-        if description:
-            about.append(ANSWER_DESCRIPTION.format(description=description))
+        naming_line += "."
+
+    about = [naming_line]
+    if not correct:
+        about.append(ANSWER_CHOSEN.format(chosen=chosen))
 
     lines = [" ".join(about)]
 
