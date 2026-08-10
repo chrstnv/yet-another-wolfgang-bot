@@ -237,7 +237,7 @@ def test_question_caption_counts_the_streak_instead():
 
     caption = progress.question_caption(session)
 
-    assert "2 подряд" in caption
+    assert "🔥\u00a02\u00a0подряд" in caption
     assert "из 3" not in caption
 
 def test_question_caption_says_nothing_on_the_first_streak_question():
@@ -289,7 +289,7 @@ def test_question_caption_keeps_the_line_in_a_streak():
 
     caption = progress.question_caption(session)
 
-    assert "🔥 3 подряд" in caption
+    assert "🔥\u00a03\u00a0подряд" in caption
     assert caption.endswith("🎵 Красивый выбор. Мой.")
 
 @pytest.mark.parametrize("length, best, by_far", [
@@ -340,16 +340,16 @@ def test_answer_caption_names_the_work_before_the_mistake():
     assert text.startswith("❌ Реплика.\nЭто Бизе — Хабанера из «Кармен», а не Верди — «Аида».")
 
 def test_answer_caption_counts_the_streak_beside_the_reply():
-    assert caption(streak=7).startswith("✅ Реплика. 🔥 7 подряд.")
+    assert caption(streak=7).startswith("✅ Реплика. 🔥\u00a07\u00a0подряд.")
 
 def test_answer_caption_keeps_the_description_against_the_name():
     # без пустой строки: вместе они читаются как одна фраза
     text = caption()
 
-    assert "Кармен».\n🎼 Выходная ария" in text
+    assert "Кармен».\nВыходная ария" in text
 
 def test_answer_caption_skips_the_description_when_there_is_none():
-    assert "🎼" not in caption(description="")
+    assert caption(description="").startswith("✅ Реплика.\nЭто Бизе")
 
 def test_answer_caption_names_the_fragment_only_when_given():
     assert "🎵 Адажио" in caption(fragment="Адажио")

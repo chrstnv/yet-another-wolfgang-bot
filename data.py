@@ -102,20 +102,20 @@ QUESTION_VARIANTS = [
 # верно или нет, говорит галочка, а словами это говорит сам Вольфганг:
 # отдельное «Верно!» перед его репликой было бы тем же самым дважды
 ANSWER_CORRECT = "✅ {reply}"
-ANSWER_CORRECT_STREAK = "✅ {reply} 🔥 {length} подряд."
+ANSWER_CORRECT_STREAK = "✅ {reply} 🔥 {length} подряд."
 ANSWER_WRONG = "❌ {reply}"
 
 ANSWER_NAMING = "Это {naming}."
 ANSWER_NAMING_WRONG = "Это {naming}, а не {chosen}."
 
-ANSWER_DESCRIPTION = "🎼 {description}"
+ANSWER_DESCRIPTION = "{description}"
 ANSWER_FRAGMENT = "🎵 {fragment}"
 ANSWER_FACT = "💡 {fact}"
 ANSWER_RECORDING = "🎧 {performer} — {source}"
 
 QUESTION_COUNTER = "<b>Вопрос {number} из {total}</b>"
 
-STREAK_COUNTER = "<b>🔥 {length} подряд</b>"
+STREAK_COUNTER = "<b>🔥 {length} подряд</b>"
 
 VERDICTS = {
     "perfect": (
