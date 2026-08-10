@@ -337,7 +337,7 @@ def test_answer_caption_opens_with_wolfgang_speaking():
 def test_answer_caption_names_the_work_before_the_mistake():
     text = caption(correct=False, chosen="Верди — «Аида»")
 
-    assert text.startswith("❌ Реплика.\n\nЭто Бизе — Хабанера из «Кармен», а не Верди — «Аида».")
+    assert text.startswith("❌ Реплика.\n\nЭто Бизе — Хабанера из «Кармен». Вы же выбрали Верди — «Аида».")
 
 def test_answer_caption_counts_the_streak_beside_the_reply():
     assert caption(streak=7).startswith("✅ Реплика. 🔥\u00a07\u00a0подряд.")
@@ -381,3 +381,9 @@ def test_answer_caption_mozart_owns_it_even_when_missed():
 
 def test_answer_caption_introduces_everyone_else_in_the_third_person():
     assert caption().count("Это Бизе") == 1
+
+def test_answer_caption_keeps_the_fragment_with_the_right_work_after_a_miss():
+    text = caption(correct=False, chosen="Верди — «Аида»", fragment="Рондо")
+
+    # «Рондо» — часть того, что звучало, а не того, что выбрали
+    assert "из «Кармен», Рондо. Вы же выбрали Верди — «Аида»." in text

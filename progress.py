@@ -1,7 +1,8 @@
 import quiz
 from data import (
     ANSWER_CORRECT, ANSWER_CORRECT_STREAK, ANSWER_DESCRIPTION, ANSWER_FACT, ANSWER_FRAGMENT,
-    ANSWER_NAMING, ANSWER_NAMING_MOZART, ANSWER_NAMING_MOZART_WRONG, ANSWER_NAMING_WRONG,
+    ANSWER_CHOSEN, ANSWER_NAMING, ANSWER_NAMING_MOZART, ANSWER_NAMING_MOZART_WRONG,
+    ANSWER_NAMING_WRONG,
     ANSWER_RECORDING, ANSWER_RECORDING_LICENSED,
     ANSWER_WRONG,
     QUESTION_COUNTER, QUESTION_VARIANTS, STREAK_COUNTER,
@@ -170,30 +171,30 @@ def answer_caption(
     """
     if not correct:
         verdict = ANSWER_WRONG.format(reply=reply)
-        naming_line = ANSWER_NAMING_MOZART_WRONG if mozart else ANSWER_NAMING_WRONG
-        # между названием и описанием тут стоит чужое имя, и запятая привязала бы
-        # описание к нему; поэтому в промахе фраза остаётся разделённой точкой
-        about = [naming_line.format(naming=naming, chosen=chosen)]
-        if fragment:
-            about.append(ANSWER_FRAGMENT.format(fragment=fragment) + ".")
-        if description:
-            about.append(ANSWER_DESCRIPTION.format(description=description))
+        template = ANSWER_NAMING_MOZART_WRONG if mozart else ANSWER_NAMING_WRONG
     else:
         verdict = (
             ANSWER_CORRECT_STREAK.format(reply=reply, length=streak) if streak
             else ANSWER_CORRECT.format(reply=reply)
         )
-        naming_line = (ANSWER_NAMING_MOZART if mozart else ANSWER_NAMING).format(naming=naming)
-        # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
-        if fragment:
-            naming_line += ", " + ANSWER_FRAGMENT.format(fragment=fragment)
+        template = ANSWER_NAMING_MOZART if mozart else ANSWER_NAMING
+
+    naming_line = template.format(naming=naming)
+    # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем.
+    # Стоит он вплотную к названию: это часть того же произведения, и в промахе
+    # его нельзя отодвигать за чужой ответ — прицепится к нему
+    if fragment:
+        naming_line += ", " + ANSWER_FRAGMENT.format(fragment=fragment)
+
+    if correct:
         # описание продолжает ту же фразу через запятую, а не начинает новую:
         # описание всегда начинается с нарицательного, так что строчная безопасна
-        if description:
-            naming_line += ", " + description[0].lower() + description[1:]
-        else:
-            naming_line += "."
+        naming_line += ", " + description[0].lower() + description[1:] if description else "."
         about = [naming_line]
+    else:
+        about = [naming_line + ".", ANSWER_CHOSEN.format(chosen=chosen)]
+        if description:
+            about.append(ANSWER_DESCRIPTION.format(description=description))
 
     lines = [" ".join(about)]
 
