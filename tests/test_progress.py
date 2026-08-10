@@ -352,10 +352,10 @@ def test_answer_caption_skips_the_description_when_there_is_none():
     assert caption(description="").startswith("✅ Реплика.\n\nЭто Бизе — Хабанера из «Кармен».")
 
 def test_answer_caption_puts_the_fragment_right_after_the_title():
-    assert "из «Кармен», 🎵 Адажио, выходная ария" in caption(fragment="Адажио")
+    assert "из «Кармен», Адажио, выходная ария" in caption(fragment="Адажио")
 
 def test_answer_caption_names_no_fragment_when_there_is_none():
-    assert "🎵" not in caption(fragment="")
+    assert caption(fragment="").startswith("✅ Реплика.\n\nЭто Бизе — Хабанера из «Кармен», выходная")
 
 def test_answer_caption_ends_with_the_credit():
     assert caption().endswith("🎧 Кто-то — Откуда-то")

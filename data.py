@@ -112,7 +112,7 @@ ANSWER_NAMING_MOZART = "Это, разумеется, я — {naming}"
 ANSWER_NAMING_MOZART_WRONG = "А это был я — {naming}. Вы же выбрали {chosen}."
 
 ANSWER_DESCRIPTION = "{description}"
-ANSWER_FRAGMENT = "🎵 {fragment}"
+ANSWER_FRAGMENT = "{fragment}"
 ANSWER_FACT = "💡 {fact}"
 ANSWER_RECORDING = "🎧 {performer} — {source}"
 # лицензии с NoDerivatives требуют называть себя рядом с записью
