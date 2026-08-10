@@ -174,6 +174,8 @@ def answer_caption(
         # между названием и описанием тут стоит чужое имя, и запятая привязала бы
         # описание к нему; поэтому в промахе фраза остаётся разделённой точкой
         about = [naming_line.format(naming=naming, chosen=chosen)]
+        if fragment:
+            about.append(ANSWER_FRAGMENT.format(fragment=fragment) + ".")
         if description:
             about.append(ANSWER_DESCRIPTION.format(description=description))
     else:
@@ -182,7 +184,10 @@ def answer_caption(
             else ANSWER_CORRECT.format(reply=reply)
         )
         naming_line = (ANSWER_NAMING_MOZART if mozart else ANSWER_NAMING).format(naming=naming)
-        # название и описание — одна фраза через запятую, а не две рубленые:
+        # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
+        if fragment:
+            naming_line += ", " + ANSWER_FRAGMENT.format(fragment=fragment)
+        # описание продолжает ту же фразу через запятую, а не начинает новую:
         # описание всегда начинается с нарицательного, так что строчная безопасна
         if description:
             naming_line += ", " + description[0].lower() + description[1:]
@@ -191,9 +196,6 @@ def answer_caption(
         about = [naming_line]
 
     lines = [" ".join(about)]
-    # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
-    if fragment:
-        lines.append(ANSWER_FRAGMENT.format(fragment=fragment))
 
     credit = ANSWER_RECORDING_LICENSED if recording.get("license") else ANSWER_RECORDING
 
