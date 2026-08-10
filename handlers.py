@@ -202,6 +202,14 @@ async def random_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     await send_question(update, context)
 
+def bare(text: str) -> str:
+    """Название без кавычек и регистра — для сравнения с именем фрагмента.
+
+    В названии эпизод бывает в кавычках («Выход гладиаторов»), а во фрагменте
+    без них, и посимвольное сравнение таких двойников не узнаёт.
+    """
+    return text.lower().strip("«»\"" + " .,:;")
+
 def options_keyboard(option_ids: list[str], by_id: dict) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(by_id[option_id]["title"], callback_data=f"answer:{option_id}")]
@@ -491,7 +499,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # «Интродукции и рондо каприччиозо» слово «рондо» внутри названия, но фрагментов
     # там два, и различает их как раз оно
     fragment = session["fragment"]
-    if card["title"].lower().endswith(fragment.lower()):
+    if bare(card["title"]).endswith(bare(fragment)):
         fragment = ""
 
     await telegram_call(lambda: query.edit_message_caption(
