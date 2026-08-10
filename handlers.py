@@ -1,8 +1,9 @@
 import html
+import logging
 import random
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.error import BadRequest, TelegramError
+from telegram.error import BadRequest, NetworkError, TelegramError, TimedOut
 from telegram.ext import ContextTypes
 
 import progress
@@ -20,8 +21,28 @@ from keyboards import MENU_KEYBOARD
 # хендлером effect_id: отправить боту сообщение с эффектом.
 # Конфетти достаётся безошибочному квизу, огонёк — рекорду серии:
 # достижения разные, и ощущаться должны по-разному.
+LOGGER = logging.getLogger(__name__)
+
 CONFETTI_EFFECT = "5046509860389126442"
 FIRE_EFFECT = "5104841245755180586"
+
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Сетевые сбои — строчкой в лог, всё остальное — со стеком.
+
+    До Телеграма не всегда получается достучаться, и на это нечего ответить:
+    обновление придёт заново или не придёт вовсе. Полотно на сорок строк такое
+    событие не заслуживает и только прячет настоящие ошибки.
+
+    BadRequest в этой библиотеке тоже наследник NetworkError, хотя сбой это
+    наш, а не сетевой, — поэтому исключаем его отдельно.
+    """
+    error = context.error
+
+    if isinstance(error, (TimedOut, NetworkError)) and not isinstance(error, BadRequest):
+        LOGGER.warning("Телеграм не отозвался: %s", error)
+        return
+
+    LOGGER.error("Необработанная ошибка", exc_info=error)
 
 async def acknowledge(query) -> None:
     """Гасит «часики» на нажатой кнопке.

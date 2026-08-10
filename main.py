@@ -1,3 +1,4 @@
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -9,13 +10,19 @@ from telegram.ext import (
 import content
 import storage
 from handlers import (
-    start, random_quiz, quiz_answer, audio_file_id, next_question,
+    on_error, start, random_quiz, quiz_answer, audio_file_id, next_question,
     restart_quiz, show_progress, effect_id, chat_id, review_quiz,
     streak_quiz, reveal_options, settings_screen, toggle_hide_options, close_screen,
 )
 from keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL, STREAK_LABEL
 
 load_dotenv()
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO
+)
+# httpx печатает строчку на каждый запрос к Телеграму, включая опрос раз в секунду
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 def main() -> None:
     # квиз живёт в user_data, а он по умолчанию гибнет вместе с процессом:
@@ -91,6 +98,8 @@ def main() -> None:
     # запуск: «Failed run number 0 of 0. Aborting». Сеть после пробуждения
     # ноутбука поднимается не мгновенно, и ждать её правильнее, чем падать.
     # Неверный токен под это исключение не попадает и по-прежнему прерывает старт
+    app.add_error_handler(on_error)
+
     app.run_polling(bootstrap_retries=-1)
 
 if __name__ == "__main__":
