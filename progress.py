@@ -177,16 +177,20 @@ def answer_caption(
         about = [ANSWER_NAMING.format(naming=naming)]
 
     if description:
+        # название и описание — одно предложение через точку, а не две строки:
+        # перенос между ними разрывал фразу там, где её читают слитно
         about.append(ANSWER_DESCRIPTION.format(description=description))
+
+    lines = [" ".join(about)]
     # у отдельной пьесы имя фрагмента совпадает с названием — повторять его незачем
     if fragment:
-        about.append(ANSWER_FRAGMENT.format(fragment=fragment))
+        lines.append(ANSWER_FRAGMENT.format(fragment=fragment))
 
     credit = ANSWER_RECORDING_LICENSED if recording.get("license") else ANSWER_RECORDING
 
     return "\n\n".join([
         verdict,
-        "\n".join(about),
+        "\n".join(lines),
         ANSWER_FACT.format(fact=fact),
         credit.format(**recording),
     ])

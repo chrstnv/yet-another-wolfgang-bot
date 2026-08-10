@@ -342,11 +342,11 @@ def test_answer_caption_names_the_work_before_the_mistake():
 def test_answer_caption_counts_the_streak_beside_the_reply():
     assert caption(streak=7).startswith("✅ Реплика. 🔥\u00a07\u00a0подряд.")
 
-def test_answer_caption_keeps_the_description_against_the_name():
-    # без пустой строки: вместе они читаются как одна фраза
+def test_answer_caption_runs_the_description_on_from_the_name():
+    # одной строкой: вместе они читаются как одна фраза
     text = caption()
 
-    assert "Кармен».\nВыходная ария" in text
+    assert "Кармен». Выходная ария" in text
 
 def test_answer_caption_skips_the_description_when_there_is_none():
     assert caption(description="").startswith("✅ Реплика.\n\nЭто Бизе")
