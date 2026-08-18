@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from telegram.error import BadRequest, TimedOut
 
-from handlers import acknowledge, one_at_a_time, telegram_call
+from handlers import acknowledge, card_naming, one_at_a_time, telegram_call
 
 def run(coroutine):
     return asyncio.run(coroutine)
@@ -148,3 +148,15 @@ def test_one_at_a_time_releases_the_lock_after_a_failure():
     for _ in range(2):
         with pytest.raises(ValueError):
             run(handler(make_update(), None))
+
+def test_card_naming_prints_a_foreign_original_in_brackets():
+    card = {"title": "Делиб — «Лакме», дуэт цветов", "original_title": "Sous le dôme épais"}
+    assert card_naming(card) == "Делиб — «Лакме», дуэт цветов (Sous le dôme épais)"
+
+def test_card_naming_drops_an_original_that_repeats_the_title():
+    card = {"title": "Чайковский — увертюра «1812 год»", "original_title": "Увертюра «1812 год»"}
+    assert card_naming(card) == "Чайковский — увертюра «1812 год»"
+
+def test_card_naming_leaves_the_composer_out_when_mozart_speaks():
+    card = {"title": "Моцарт — Реквием, «Лакримоза»"}
+    assert card_naming(card, mozart=True) == "Реквием, «Лакримоза»"

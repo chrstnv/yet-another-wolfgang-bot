@@ -211,6 +211,24 @@ def bare(text: str) -> str:
     """
     return text.lower().strip("«»\"" + " .,:;")
 
+def card_naming(card: dict, mozart: bool = False) -> str:
+    """Как вещь называется в подписи к ответу.
+
+    Оригинальное название печатается ради иностранного написания: «Лакме»
+    (Sous le dôme épais). Когда же оно сидит внутри русского, скобки только
+    повторяют сказанное — «увертюра «1812 год» (Увертюра «1812 год»)».
+
+    О себе Вольфганг говорит в первом лице, и фамилия в начале названия
+    становится лишней: «это я — Моцарт — Лакримоза» звучит как заикание.
+    """
+    original = card.get("original_title")
+    if original and bare(original) in bare(card["title"]):
+        original = None
+
+    naming = f"{card['title']} ({original})" if original else card["title"]
+
+    return naming.split(" — ", 1)[-1] if mozart else naming
+
 def options_keyboard(option_ids: list[str], by_id: dict) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(by_id[option_id]["title"], callback_data=f"answer:{option_id}")]
@@ -490,14 +508,8 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     deck = quiz.reply_deck(card, correct)
     reply = quiz.next_line(session, deck, REPLY_DECKS[deck])
 
-    original = card.get("original_title")
-    naming = f"{card['title']} ({original})" if original else card["title"]
-
-    # о себе Вольфганг говорит в первом лице, и фамилия в начале названия
-    # становится лишней: «это я — Моцарт — Лакримоза» звучит как заикание
     mozart = card.get("composer") == quiz.MOZART
-    if mozart:
-        naming = naming.split(" — ", 1)[-1]
+    naming = card_naming(card, mozart)
 
     # имя фрагмента печатается, только если что-то добавляет к названию.
     # У карточки с одним фрагментом различать нечего, поэтому достаточно, чтобы
