@@ -124,3 +124,91 @@ def test_fragment_without_any_recording_is_a_problem():
     problems = content.find_problems([card])
 
     assert any("recording" in problem for problem in problems)
+
+def flaws_of(**card):
+    return content.find_flaws([{"id": "card", **card}])
+
+def test_flaws_catch_a_description_that_starts_with_a_word_from_the_title():
+    found = flaws_of(
+        title="Бетховен — увертюра «Кориолан»",
+        description="Увертюра к трагедии о римском полководце.",
+        fragments=[{"name": "Увертюра", "start": "0", "audio_file_id": "x"}],
+        facts=["Факт."],
+    )
+
+    assert found["описание повторяет название"]
+
+def test_flaws_leave_a_description_that_continues_the_title():
+    found = flaws_of(
+        title="Бетховен — увертюра «Кориолан»",
+        description="Написана к трагедии о римском полководце.",
+        fragments=[{"name": "Увертюра", "start": "0", "audio_file_id": "x"}],
+        facts=["Факт."],
+    )
+
+    assert not found["описание повторяет название"]
+
+def test_flaws_catch_a_description_retelling_its_fact():
+    found = flaws_of(
+        title="Дворжак — Симфония №9",
+        description="Написана в Нью-Йорке, где Дворжак руководил консерваторией.",
+        fragments=[{"name": "Финал", "start": "0", "audio_file_id": "x"}],
+        facts=["Симфонию Дворжак написал в Нью-Йорке, где руководил консерваторией."],
+    )
+
+    assert found["описание пересказывает факт"]
+
+def test_flaws_catch_a_fact_leaning_on_its_neighbour():
+    found = flaws_of(
+        title="Глинка — «Жаворонок»",
+        fragments=[{"name": "Начало", "start": "0", "audio_file_id": "x"}],
+        facts=["Той же весной он сочинил ещё один романс."],
+    )
+
+    assert found["факт опирается на соседний"]
+
+def test_flaws_catch_titles_that_collide_when_cut_short():
+    found = content.find_flaws([
+        {"id": "one", "title": "Рахманинов — Концерт для фортепиано №2"},
+        {"id": "two", "title": "Рахманинов — Концерт для фортепиано №3"},
+    ])
+
+    assert found["названия сливаются при обрезке"]
+
+def test_flaws_leave_titles_that_differ_within_the_visible_part():
+    found = content.find_flaws([
+        {"id": "one", "title": "Рахманинов — Концерт №2 для фортепиано"},
+        {"id": "two", "title": "Рахманинов — Концерт №3 для фортепиано"},
+    ])
+
+    assert not found["названия сливаются при обрезке"]
+
+def test_flaws_count_a_fragment_without_a_recorded_offset():
+    found = flaws_of(
+        title="Гендель — «Музыка на воде»",
+        fragments=[{"name": "Алла хорнпайп", "audio_file_id": "x"}],
+        facts=["Факт."],
+        recording={"performer": "Кто-то", "source": "Musopen", "license": "CC0"},
+    )
+
+    assert found["у фрагмента не записана засечка"]
+
+def test_flaws_spare_a_whole_recording_that_has_no_offset_to_record():
+    found = flaws_of(
+        title="Масканьи — интермеццо",
+        fragments=[{"name": "Интермеццо", "as_is": True, "audio_file_id": "x"}],
+        facts=["Факт."],
+        recording={"performer": "Кто-то", "source": "IMSLP", "license": "CC BY-NC-ND 4.0"},
+    )
+
+    assert not found["у фрагмента не записана засечка"]
+
+def test_flaws_count_a_recording_without_a_licence():
+    found = flaws_of(
+        title="Бах — Прелюдия",
+        fragments=[{"name": "Прелюдия", "start": "0", "audio_file_id": "x"}],
+        facts=["Факт."],
+        recording={"performer": "Кто-то", "source": "Musopen"},
+    )
+
+    assert found["лицензия записи не указана"]

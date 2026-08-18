@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 
 # поля, без которых карточку нельзя задать вопросом
@@ -84,3 +85,95 @@ def load_library(directory: Path | None = None) -> dict:
         "by_id": {card["id"]: card for card in cards},
         "playable": [card for card in cards if card.get("fragments")],
     }
+
+# Ниже — проверки не поломки, а качества. Поломка не даёт боту запуститься,
+# а изъян лишь портит подпись, поэтому find_flaws никого не роняет: его
+# показывает tools.check_content, а библиотека грузится и с изъянами.
+
+# слова, по которым нельзя судить о пересказе: они встречаются везде
+COMMON = {
+    "который", "которая", "которое", "которые", "написан", "написана", "написано",
+    "написал", "первый", "первая", "первое", "вторая", "второй", "части", "часть",
+    "музыка", "музыки", "композитор", "сочинение", "произведение", "оркестр",
+    "фортепиано", "премьера", "оркестровые", "оркестровой",
+}
+
+def meaningful(text: str) -> set[str]:
+    """Содержательные слова текста: от пяти букв и не из общего словаря."""
+    return {word for word in re.findall(r"[а-яёa-z]{5,}", text.lower()) if word not in COMMON}
+
+def bare(text: str) -> str:
+    """Текст без кавычек, регистра и краевых знаков."""
+    return text.lower().strip("«»\"" + " .,:;—-")
+
+# доля общих слов, начиная с которой описание считается пересказом факта
+RETELLING = 0.5
+# сколько символов названия видно на узкой кнопке, прежде чем начнётся многоточие
+VISIBLE = 30
+
+# отсылка в первом слове факта: он показывается один и опереться ему не на что
+LEANING = re.compile(
+    r"^(Посвящение|Название|Заголовок|Прозвище|Подзаголовок)\s+(здесь|это|тут)"
+    r"|^(Той же|Тем же|В этом же|В том же|На том|Тот самый|Та самая|Те самые)\b"
+    r"|^(Он|Она|Они|Его|Её|Ему|Ей)\s+(же|тоже|потом|позже|затем)\b",
+)
+
+def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
+    """Изъяны текстов и учёта: то, что портит подпись, но не ломает бота."""
+    flaws: dict[str, list[str]] = {name: [] for name in (
+        "описание повторяет название",
+        "описание повторяет имя фрагмента",
+        "описание пересказывает факт",
+        "факт опирается на соседний",
+        "названия сливаются при обрезке",
+        "у фрагмента не записана засечка",
+        "лицензия записи не указана",
+    )}
+
+    seen_short: dict[str, str] = {}
+
+    for card in sorted(cards, key=lambda card: card["id"]):
+        card_id, title = card["id"], card.get("title", "")
+
+        short = title[:VISIBLE]
+        if short in seen_short:
+            flaws["названия сливаются при обрезке"].append(f"{card_id} и {seen_short[short]}: «{short}…»")
+        seen_short[short] = card_id
+
+        fragments = card.get("fragments") or []
+        if not fragments:
+            continue
+
+        for number, fragment in enumerate(fragments, start=1):
+            if "start" not in fragment and not fragment.get("as_is"):
+                flaws["у фрагмента не записана засечка"].append(f"{card_id}: фрагмент {number}")
+
+            recording = fragment.get("recording") or card.get("recording") or {}
+            if not recording.get("license"):
+                flaws["лицензия записи не указана"].append(f"{card_id}: {recording.get('source', '?')}")
+
+        # отсылка в факте — изъян сама по себе, описание тут ни при чём
+        for number, fact in enumerate(card.get("facts") or []):
+            if LEANING.match(fact):
+                flaws["факт опирается на соседний"].append(f"{card_id}: факт {number}")
+
+        description = card.get("description") or ""
+        if not description:
+            continue
+
+        first = bare(description.split()[0])
+        if len(first) > 4 and first in {bare(word) for word in title.split()}:
+            flaws["описание повторяет название"].append(f"{card_id}: «{description[:50]}…»")
+
+        for fragment in fragments:
+            name = bare(fragment["name"])
+            if len(name) > 4 and name in description.lower() and not bare(title).endswith(name):
+                flaws["описание повторяет имя фрагмента"].append(f"{card_id}: «{fragment['name']}»")
+                break
+
+        words = meaningful(description)
+        for number, fact in enumerate(card.get("facts") or []):
+            if words and len(words & meaningful(fact)) / len(words) >= RETELLING:
+                flaws["описание пересказывает факт"].append(f"{card_id}: факт {number}")
+
+    return flaws

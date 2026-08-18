@@ -499,12 +499,15 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if mozart:
         naming = naming.split(" — ", 1)[-1]
 
-    # если название и так кончается именем фрагмента («Лакме», дуэт цветов), второй
-    # раз его печатать незачем. Смотрим именно на конец, а не на вхождение: у
-    # «Интродукции и рондо каприччиозо» слово «рондо» внутри названия, но фрагментов
-    # там два, и различает их как раз оно
+    # имя фрагмента печатается, только если что-то добавляет к названию.
+    # У карточки с одним фрагментом различать нечего, поэтому достаточно, чтобы
+    # имя просто входило в название: «Ноктюрн» при «Ноктюрн №2, Op. 9» — пустой звук.
+    # Там, где фрагментов несколько, вхождения мало: у «Интродукции и рондо
+    # каприччиозо» слово «рондо» сидит внутри названия, но именно оно и различает части
     fragment = session["fragment"]
-    if bare(card["title"]).endswith(bare(fragment)):
+    alone = len(card["fragments"]) == 1
+    inside = bare(fragment) in bare(card["title"])
+    if inside if alone else bare(card["title"]).endswith(bare(fragment)):
         fragment = ""
 
     await telegram_call(lambda: query.edit_message_caption(

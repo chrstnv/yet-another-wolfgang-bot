@@ -9,6 +9,10 @@ from dotenv import load_dotenv
 
 import content
 
+# сколько примеров показывать на каждый изъян: список нужен для правки,
+# а не для чтения целиком
+EXAMPLES = 5
+
 def main() -> int:
     load_dotenv()
 
@@ -39,9 +43,25 @@ def main() -> int:
         print(f"\nПроблемы ({len(problems)}):")
         for problem in problems:
             print(f"  {problem}")
+
+    # изъяны не мешают боту работать, поэтому показываются всегда и на код
+    # возврата не влияют: это список для правки, а не отказ собирать библиотеку
+    flaws = content.find_flaws(cards)
+    if any(flaws.values()):
+        print("\nИзъяны:")
+        for name, items in flaws.items():
+            if not items:
+                continue
+            print(f"\n  {name} — {len(items)}")
+            for item in items[:EXAMPLES]:
+                print(f"    {item}")
+            if len(items) > EXAMPLES:
+                print(f"    … и ещё {len(items) - EXAMPLES}")
+
+    if problems:
         return 1
 
-    print("\nПроблем не найдено.")
+    print("\nПоломок нет.")
     return 0
 
 if __name__ == "__main__":
