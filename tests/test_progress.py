@@ -332,15 +332,15 @@ def caption(**overrides):
     return progress.answer_caption(**{**defaults, **overrides})
 
 def test_answer_caption_opens_with_wolfgang_speaking():
-    assert caption().startswith("✅ Реплика.\n\nЭто Бизе — Хабанера из «Кармен», выходная ария")
+    assert caption().startswith("✅ Реплика.\n\n🎼 Это Бизе — Хабанера из «Кармен», выходная ария")
 
 def test_answer_caption_names_the_work_before_the_mistake():
     text = caption(correct=False, chosen="Верди — «Аида»")
 
-    assert text.startswith("❌ Реплика.\n\nЭто Бизе — Хабанера из «Кармен», выходная ария Кармен в первом акте. Вы же выбрали Верди — «Аида».")
+    assert text.startswith("❌ Реплика.\n\n🎼 Это Бизе — Хабанера из «Кармен», выходная ария Кармен в первом акте. Вы же выбрали Верди — «Аида».")
 
 def test_answer_caption_counts_the_streak_beside_the_reply():
-    assert caption(streak=7).startswith("✅ Реплика.\n\n🔥\u00a07\u00a0подряд.\n\nЭто Бизе")
+    assert caption(streak=7).startswith("✅ Реплика.\n\n🔥\u00a07\u00a0подряд.\n\n🎼 Это Бизе")
 
 def test_answer_caption_runs_the_description_on_from_the_name():
     # одной строкой: вместе они читаются как одна фраза
@@ -349,13 +349,13 @@ def test_answer_caption_runs_the_description_on_from_the_name():
     assert "Кармен», выходная ария Кармен в первом акте." in text
 
 def test_answer_caption_skips_the_description_when_there_is_none():
-    assert caption(description="").startswith("✅ Реплика.\n\nЭто Бизе — Хабанера из «Кармен».")
+    assert caption(description="").startswith("✅ Реплика.\n\n🎼 Это Бизе — Хабанера из «Кармен».")
 
 def test_answer_caption_puts_the_fragment_right_after_the_title():
     assert "из «Кармен», Адажио, выходная ария" in caption(fragment="Адажио")
 
 def test_answer_caption_names_no_fragment_when_there_is_none():
-    assert caption(fragment="").startswith("✅ Реплика.\n\nЭто Бизе — Хабанера из «Кармен», выходная")
+    assert caption(fragment="").startswith("✅ Реплика.\n\n🎼 Это Бизе — Хабанера из «Кармен», выходная")
 
 def test_answer_caption_ends_with_the_credit():
     assert caption().endswith("🎧 Кто-то — Откуда-то")

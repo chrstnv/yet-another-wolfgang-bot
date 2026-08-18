@@ -108,12 +108,14 @@ ANSWER_CORRECT = "✅ {reply}"
 ANSWER_STREAK = "🔥 {length} подряд."
 ANSWER_WRONG = "❌ {reply}"
 
-ANSWER_NAMING = "Это {naming}"
-ANSWER_NAMING_WRONG = "Это {naming}"
+# нотный стан помечает справку о прозвучавшем — как лампочка факт,
+# а наушники запись; без значка этот блок был единственным неотмеченным
+ANSWER_NAMING = "🎼 Это {naming}"
+ANSWER_NAMING_WRONG = "🎼 Это {naming}"
 
 # на собственной музыке Вольфганг не представляет автора, а признаётся
-ANSWER_NAMING_MOZART = "Это, разумеется, я — {naming}"
-ANSWER_NAMING_MOZART_WRONG = "А это был я — {naming}"
+ANSWER_NAMING_MOZART = "🎼 Это, разумеется, я — {naming}"
+ANSWER_NAMING_MOZART_WRONG = "🎼 А это был я — {naming}"
 # чужой ответ — отдельной фразой: между названием и фрагментом ему не место
 ANSWER_CHOSEN = "Вы же выбрали {chosen}."
 
