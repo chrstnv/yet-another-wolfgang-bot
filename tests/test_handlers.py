@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from telegram.error import BadRequest, TimedOut
 
-from handlers import acknowledge, card_naming, one_at_a_time, telegram_call
+from handlers import acknowledge, card_naming, one_at_a_time, telegram_call, visible_fragment
 
 def run(coroutine):
     return asyncio.run(coroutine)
@@ -160,3 +160,36 @@ def test_card_naming_drops_an_original_that_repeats_the_title():
 def test_card_naming_leaves_the_composer_out_when_mozart_speaks():
     card = {"title": "Моцарт — Реквием, «Лакримоза»"}
     assert card_naming(card, mozart=True) == "Реквием, «Лакримоза»"
+
+def one_fragment(title, fragment, original=None):
+    card = {"title": title, "fragments": [{"name": fragment}]}
+    if original:
+        card["original_title"] = original
+
+    return card
+
+def test_visible_fragment_keeps_a_name_that_adds_something():
+    card = one_fragment("Григ — «Пер Гюнт»", "Танец Анитры")
+
+    assert visible_fragment(card, "Танец Анитры", "Григ — «Пер Гюнт»") == "Танец Анитры"
+
+def test_visible_fragment_drops_a_name_already_in_the_title():
+    card = one_fragment("Шопен — Ноктюрн №2, Op. 9", "Ноктюрн")
+
+    assert visible_fragment(card, "Ноктюрн", "Шопен — Ноктюрн №2, Op. 9") == ""
+
+def test_visible_fragment_drops_a_name_already_in_the_brackets():
+    card = one_fragment("Россини — ария Фигаро", "Largo al factotum",
+                        original="Largo al factotum, Il barbiere di Siviglia")
+    naming = card_naming(card)
+
+    assert visible_fragment(card, "Largo al factotum", naming) == ""
+
+def test_visible_fragment_keeps_a_name_that_tells_two_parts_apart():
+    card = {
+        "title": "Сен-Санс — Интродукция и рондо каприччиозо",
+        "fragments": [{"name": "Интродукция"}, {"name": "Рондо"}],
+    }
+    naming = card["title"]
+
+    assert visible_fragment(card, "Интродукция", naming) == "Интродукция"

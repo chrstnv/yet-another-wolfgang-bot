@@ -229,6 +229,22 @@ def card_naming(card: dict, mozart: bool = False) -> str:
 
     return naming.split(" — ", 1)[-1] if mozart else naming
 
+def visible_fragment(card: dict, fragment: str, naming: str) -> str:
+    """Имя фрагмента — или пустая строка, если оно ничего не добавляет.
+
+    У карточки с одним фрагментом различать нечего, поэтому достаточно, чтобы
+    имя уже прозвучало: «Ноктюрн» при «Ноктюрн №2, Op. 9» — пустой звук, и
+    «Largo al factotum» при «ария Фигаро (Largo al factotum)» тоже.
+
+    Там, где фрагментов несколько, вхождения мало: у «Интродукции и рондо
+    каприччиозо» слово «рондо» сидит внутри названия, но именно оно и различает
+    части, — там имя убирается, только если название им заканчивается.
+    """
+    if len(card["fragments"]) == 1:
+        return "" if bare(fragment) in bare(naming) else fragment
+
+    return "" if bare(card["title"]).endswith(bare(fragment)) else fragment
+
 def options_keyboard(option_ids: list[str], by_id: dict) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(by_id[option_id]["title"], callback_data=f"answer:{option_id}")]
@@ -511,16 +527,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     mozart = card.get("composer") == quiz.MOZART
     naming = card_naming(card, mozart)
 
-    # имя фрагмента печатается, только если что-то добавляет к названию.
-    # У карточки с одним фрагментом различать нечего, поэтому достаточно, чтобы
-    # имя просто входило в название: «Ноктюрн» при «Ноктюрн №2, Op. 9» — пустой звук.
-    # Там, где фрагментов несколько, вхождения мало: у «Интродукции и рондо
-    # каприччиозо» слово «рондо» сидит внутри названия, но именно оно и различает части
-    fragment = session["fragment"]
-    alone = len(card["fragments"]) == 1
-    inside = bare(fragment) in bare(card["title"])
-    if inside if alone else bare(card["title"]).endswith(bare(fragment)):
-        fragment = ""
+    fragment = visible_fragment(card, session["fragment"], naming)
 
     await telegram_call(lambda: query.edit_message_caption(
         caption=progress.answer_caption(
