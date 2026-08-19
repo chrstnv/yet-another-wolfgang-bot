@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 from telegram import Bot
 from telegram.error import TelegramError
 
-import content
+from core import content
 
 FRAGMENT_TITLE = "🎵 Фрагмент"
 

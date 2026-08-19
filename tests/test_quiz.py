@@ -1,6 +1,6 @@
 from collections import Counter
 
-import quiz
+from core import quiz
 import pytest
 
 CARDS = [

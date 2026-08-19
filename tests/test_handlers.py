@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from telegram.error import BadRequest, TimedOut
 
-from handlers import acknowledge, one_at_a_time, telegram_call
+from bot.handlers import acknowledge, one_at_a_time, telegram_call
 
 def run(coroutine):
     return asyncio.run(coroutine)

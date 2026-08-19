@@ -1,8 +1,8 @@
-import progress
+from core import progress
 import pytest
-import quiz
-from data import QUESTION_VARIANTS, STREAK_NEW_RECORD_PLUS, STREAK_RESULTS, VERDICTS
-from progress import card_naming, visible_fragment
+from core import quiz
+from core.data import QUESTION_VARIANTS, STREAK_NEW_RECORD_PLUS, STREAK_RESULTS, VERDICTS
+from core.progress import card_naming, visible_fragment
 
 CARDS = [
     {"id": "france-capital", "title": "Париж"},

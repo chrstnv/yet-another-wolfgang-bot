@@ -7,14 +7,13 @@ from telegram.ext import (
     PersistenceInput, PicklePersistence, filters,
 )
 
-import content
-import storage
-from handlers import (
+from core import content, storage
+from bot.handlers import (
     on_error, start, random_quiz, quiz_answer, audio_file_id, next_question,
     restart_quiz, show_progress, effect_id, chat_id, review_quiz,
     streak_quiz, reveal_options, settings_screen, toggle_hide_options, close_screen,
 )
-from keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL, STREAK_LABEL
+from bot.keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL, STREAK_LABEL
 
 load_dotenv()
 

@@ -8,17 +8,17 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest, NetworkError, TelegramError, TimedOut
 from telegram.ext import ContextTypes
 
-import progress
-import quiz
-import storage
-from data import (
+from core import progress
+from core import quiz
+from core import storage
+from core.data import (
     CLOSE_BUTTON, GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
     PROGRESS_TITLE, PROGRESS_WEAKEST, QUESTION_VARIANTS, QUIZ_EXPIRED, REPLY_DECKS,
     STREAK_FRESH,
     REVEAL_ANSWERS, SETTINGS,
     SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
-from keyboards import MENU_KEYBOARD
+from bot.keyboards import MENU_KEYBOARD
 
 # Идентификаторы стандартных эффектов одинаковы у всех, получить их можно
 # хендлером effect_id: отправить боту сообщение с эффектом.

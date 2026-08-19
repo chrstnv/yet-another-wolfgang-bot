@@ -15,7 +15,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-import content
+from core import content
 
 # сколько примеров показывать на каждый изъян: список нужен для правки,
 # а не для чтения целиком

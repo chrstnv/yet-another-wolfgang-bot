@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-import content
+from core import content
 
 RECORDING = {"performer": "Кто-то", "source": "Откуда-то"}
 
