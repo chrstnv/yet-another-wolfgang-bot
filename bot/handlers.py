@@ -76,6 +76,11 @@ async def acknowledge(query, text: str | None = None, show_alert: bool = False) 
 ATTEMPTS = 5
 PAUSE = 0.2
 
+# правки, после которых делать нечего. Сообщение не изменилось — так бывает на
+# двойном нажатии; сообщения нет вовсе — его удалили из чата, а кнопки под ним
+# у клиента остались живыми, и нажатие всё равно доходит до бота
+NOTHING_TO_EDIT = ("not modified", "message to edit not found")
+
 async def telegram_call(call, attempts: int = ATTEMPTS, pause: float = PAUSE):
     """Обращение к Телеграму с повтором на сетевых сбоях.
 
@@ -83,15 +88,16 @@ async def telegram_call(call, attempts: int = ATTEMPTS, pause: float = PAUSE):
     а повтору нужен свежий вызов.
 
     Соединение обрывается на установке — до Телеграма запрос не доходит,
-    и повторить его безопасно. Правка, которая ничего не меняет, тоже
-    считается ошибкой: так бывает на двойном нажатии, когда кнопки уже
-    сняты, и делать после неё нечего.
+    и повторить его безопасно. Правка, которой некуда лечь, ошибкой считается,
+    но нашей — нет: ни повторять её, ни падать незачем, сообщения либо и так
+    в нужном виде, либо больше нет.
     """
     for attempt in range(1, attempts + 1):
         try:
             return await call()
         except BadRequest as error:
-            if "not modified" in str(error).lower():
+            if any(reason in str(error).lower() for reason in NOTHING_TO_EDIT):
+                LOGGER.info("Правка пропущена: %s", error)
                 return None
             raise
         except (TimedOut, NetworkError) as error:
@@ -281,10 +287,21 @@ async def expire(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     Бывает, когда квиз бросили очень давно или состояние потерялось: молча
     ничего не делать хуже всего — кнопки выглядят сломанными.
+
+    Сначала кнопки, потом слова. Сообщения может уже не быть — его удалили
+    из чата, а кнопки под ним у клиента остались нажимаемыми; тогда правка
+    ни к чему не приводит, и объяснять нечего: окно всплыло бы посреди чата
+    поверх пустого места. Нажатие всё равно подтверждаем, чтобы погас
+    индикатор на кнопке.
     """
     query = update.callback_query
+    on_screen = await telegram_call(lambda: query.edit_message_reply_markup(reply_markup=None))
+
+    if on_screen is None:
+        await acknowledge(query)
+        return
+
     await acknowledge(query, QUIZ_EXPIRED, show_alert=True)
-    await telegram_call(lambda: query.edit_message_reply_markup(reply_markup=None))
 
 @one_at_a_time
 async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

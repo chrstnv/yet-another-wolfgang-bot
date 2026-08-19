@@ -6,8 +6,10 @@ import pytest
 from telegram.constants import KeyboardButtonStyle
 from telegram.error import BadRequest, TimedOut
 
-from bot.handlers import acknowledge, answered_keyboard, one_at_a_time, telegram_call
-from core.texts import NEXT_BUTTON
+from bot.handlers import (
+    acknowledge, answered_keyboard, expire, one_at_a_time, telegram_call,
+)
+from core.texts import NEXT_BUTTON, QUIZ_EXPIRED
 
 def run(coroutine):
     return asyncio.run(coroutine)
@@ -49,6 +51,13 @@ def test_telegram_call_swallows_an_edit_that_changes_nothing():
     assert run(telegram_call(call, pause=0)) is None
     assert call.calls["count"] == 1
 
+def test_telegram_call_swallows_an_edit_of_a_deleted_message():
+    # сообщение удалили из чата, а кнопки под ним у клиента остались рабочими
+    call = failing(1, BadRequest("Message to edit not found"))
+
+    assert run(telegram_call(call, pause=0)) is None
+    assert call.calls["count"] == 1
+
 def test_telegram_call_does_not_retry_other_bad_requests():
     call = failing(1, BadRequest("Chat not found"))
 
@@ -78,6 +87,37 @@ def test_acknowledge_survives_a_button_that_cannot_be_answered(error):
     run(acknowledge(query))
 
     assert query.answered == 1
+
+class ExpiredQuery:
+    """Нажатие под вопросом, от которого не осталось сессии."""
+
+    def __init__(self, error=None):
+        self.error = error
+        self.answers = []
+
+    async def edit_message_reply_markup(self, reply_markup=None):
+        if self.error:
+            raise self.error
+
+        return "сообщение без кнопок"
+
+    async def answer(self, text=None, show_alert=False):
+        self.answers.append((text, show_alert))
+
+def test_expire_explains_itself_while_the_question_is_on_screen():
+    query = ExpiredQuery()
+
+    run(expire(SimpleNamespace(callback_query=query), None))
+
+    assert query.answers == [(QUIZ_EXPIRED, True)]
+
+def test_expire_says_nothing_over_a_message_that_is_gone():
+    """Сообщение удалили из чата — окно всплыло бы поверх пустого места."""
+    query = ExpiredQuery(BadRequest("Message to edit not found"))
+
+    run(expire(SimpleNamespace(callback_query=query), None))
+
+    assert query.answers == [(None, False)]
 
 def make_update(user_id=1):
     return SimpleNamespace(effective_user=SimpleNamespace(id=user_id), callback_query=None)
