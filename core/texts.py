@@ -17,6 +17,7 @@ SETTINGS_TOAST = {
 REVEAL_ANSWERS = "👀 Показать варианты"
 
 CLOSE_BUTTON = "Закрыть"
+NEXT_BUTTON = "Дальше →"
 
 QUIZ_EXPIRED = (
     "Этот квиз уже закончился.\n\n"

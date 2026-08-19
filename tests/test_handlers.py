@@ -2,9 +2,11 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
+from telegram.constants import KeyboardButtonStyle
 from telegram.error import BadRequest, TimedOut
 
-from bot.handlers import acknowledge, one_at_a_time, telegram_call
+from bot.handlers import acknowledge, answered_keyboard, one_at_a_time, telegram_call
+from core.texts import NEXT_BUTTON
 
 def run(coroutine):
     return asyncio.run(coroutine)
@@ -148,3 +150,29 @@ def test_one_at_a_time_releases_the_lock_after_a_failure():
     for _ in range(2):
         with pytest.raises(ValueError):
             run(handler(make_update(), None))
+
+def option_cards():
+    return {
+        "verdi": {"title": "Верди — «Аида»"},
+        "bizet": {"title": "Бизе — «Кармен»"},
+        "grieg": {"title": "Григ — «Утро»"},
+    }
+
+def styles_of(markup):
+    return [button.style for row in markup.inline_keyboard for button in row]
+
+def test_answered_keyboard_paints_the_right_answer_green():
+    markup = answered_keyboard(["verdi", "bizet", "grieg"], option_cards(), "bizet", "bizet")
+
+    assert styles_of(markup) == [None, KeyboardButtonStyle.SUCCESS, None, None]
+
+def test_answered_keyboard_paints_a_miss_red_and_still_shows_the_answer():
+    markup = answered_keyboard(["verdi", "bizet", "grieg"], option_cards(), "bizet", "grieg")
+
+    assert styles_of(markup) == [None, KeyboardButtonStyle.SUCCESS, KeyboardButtonStyle.DANGER, None]
+
+def test_answered_keyboard_keeps_the_options_and_adds_a_way_on():
+    markup = answered_keyboard(["verdi", "bizet", "grieg"], option_cards(), "bizet", "bizet")
+    labels = [button.text for row in markup.inline_keyboard for button in row]
+
+    assert labels == ["Верди — «Аида»", "Бизе — «Кармен»", "Григ — «Утро»", NEXT_BUTTON]

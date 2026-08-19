@@ -79,7 +79,7 @@ python -m tools.add_card --help  # добавить карточку или пе
 ## Тесты и хуки
 
 ```bash
-make test     # 188 тестов
+make test     # 191 тест
 make hooks    # хуки перед коммитом в оба репозитория
 ```
 

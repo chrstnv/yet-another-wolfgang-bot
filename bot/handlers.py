@@ -5,6 +5,7 @@ import logging
 import random
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.constants import KeyboardButtonStyle
 from telegram.error import BadRequest, NetworkError, TelegramError, TimedOut
 from telegram.ext import ContextTypes
 
@@ -12,7 +13,8 @@ from core import progress
 from core import quiz
 from core import storage
 from core.texts import (
-    CLOSE_BUTTON, GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
+    CLOSE_BUTTON, GREETING, NEXT_BUTTON, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD,
+    PROGRESS_RECORD,
     PROGRESS_TITLE, PROGRESS_WEAKEST, QUESTION_VARIANTS, QUIZ_EXPIRED, REPLY_DECKS,
     STREAK_FRESH,
     REVEAL_ANSWERS, SETTINGS,
@@ -208,6 +210,36 @@ def options_keyboard(option_ids: list[str], by_id: dict) -> InlineKeyboardMarkup
         [InlineKeyboardButton(by_id[option_id]["title"], callback_data=f"answer:{option_id}")]
         for option_id in option_ids
     ])
+
+def answered_keyboard(
+    option_ids: list[str], by_id: dict, card_id: str, chosen_id: str
+) -> InlineKeyboardMarkup:
+    """Те же варианты, но с раскраской: верный зелёный, промах красный.
+
+    Кнопки остаются на месте, а не исчезают: видно не только что было верно, но
+    и что вы выбрали, — без перечитывания подписи. Нажатия по ним игнорируются,
+    quiz_answer отсекает отвеченный вопрос сам.
+
+    Цвет появился в Bot API 9.4, февраль 2026 года. В клиентах постарше он
+    просто не показывается, и кнопки выглядят как раньше.
+    """
+    rows = []
+    for option_id in option_ids:
+        style = None
+        if option_id == card_id:
+            style = KeyboardButtonStyle.SUCCESS
+        elif option_id == chosen_id:
+            style = KeyboardButtonStyle.DANGER
+
+        rows.append([InlineKeyboardButton(
+            by_id[option_id]["title"],
+            callback_data=f"answer:{option_id}",
+            style=style,
+        )])
+
+    rows.append([InlineKeyboardButton(NEXT_BUTTON, callback_data="next")])
+
+    return InlineKeyboardMarkup(rows)
 
 async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = context.user_data["quiz"]
@@ -500,9 +532,9 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             streak=quiz.score(session) if session.get("mode") == quiz.STREAK else 0,
             mozart=mozart,
         ),
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Дальше →", callback_data="next")]
-        ]),
+        reply_markup=answered_keyboard(
+            session["options"], context.bot_data["library"]["by_id"], card_id, chosen_id
+        ),
     ))
     await acknowledge(query)
 
