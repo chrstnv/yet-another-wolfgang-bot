@@ -118,6 +118,22 @@ LEANING = re.compile(
     r"|^(Он|Она|Они|Его|Её|Ему|Ей)\s+(же|тоже|потом|позже|затем)\b",
 )
 
+# факт читают с телефона, под ответом, где уже стоят название, описание
+# и подпись к записи: одного предложения хватает, двух — предел
+SENTENCES = 2
+SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
+
+# зачин, который обещает интересное вместо того, чтобы его рассказать
+THROAT_CLEARING = re.compile(
+    r"^(Интересно|Любопытно|Примечательно|Мало кто|Не все|Стоит отметить|Известно),?\s",
+)
+
+# на своих карточках Вольфганг говорит от первого лица, но в чужой прямой речи
+# фамилия законна: «оркестр заорал „Виват, великий Моцарт!“»
+MOZART = "Моцарт"
+QUOTED = re.compile(r"«[^»]*»")
+THIRD_PERSON_MOZART = re.compile(r"\bМоцарт[а-яё]*\b")
+
 def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
     """Изъяны текстов и учёта: то, что портит подпись, но не ломает бота."""
     flaws: dict[str, list[str]] = {name: [] for name in (
@@ -125,6 +141,9 @@ def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
         "описание повторяет имя фрагмента",
         "описание пересказывает факт",
         "факт опирается на соседний",
+        "факт длиннее двух предложений",
+        "факт начинается с обещания",
+        "Моцарт говорит о себе в третьем лице",
         "названия сливаются при обрезке",
         "у фрагмента не записана засечка",
         "лицензия записи не указана",
@@ -152,10 +171,19 @@ def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
             if not recording.get("license"):
                 flaws["лицензия записи не указана"].append(f"{card_id}: {recording.get('source', '?')}")
 
-        # отсылка в факте — изъян сама по себе, описание тут ни при чём
+        # изъяны самого факта — описание тут ни при чём
         for number, fact in enumerate(card.get("facts") or []):
             if LEANING.match(fact):
                 flaws["факт опирается на соседний"].append(f"{card_id}: факт {number}")
+
+            if len(SENTENCE_END.findall(fact)) > SENTENCES:
+                flaws["факт длиннее двух предложений"].append(f"{card_id}: факт {number}")
+
+            if THROAT_CLEARING.match(fact):
+                flaws["факт начинается с обещания"].append(f"{card_id}: «{fact[:40]}…»")
+
+            if card.get("composer") == MOZART and THIRD_PERSON_MOZART.search(QUOTED.sub("", fact)):
+                flaws["Моцарт говорит о себе в третьем лице"].append(f"{card_id}: факт {number}")
 
         description = card.get("description") or ""
         if not description:

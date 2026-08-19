@@ -212,3 +212,60 @@ def test_flaws_count_a_recording_without_a_licence():
     )
 
     assert found["лицензия записи не указана"]
+
+def test_flaws_catch_a_fact_that_runs_past_two_sentences():
+    found = flaws_of(
+        title="Бах — Токката и фуга ре минор",
+        fragments=[{"name": "Начало", "start": "0", "audio_file_id": "x"}],
+        facts=["Первое. Второе. Третье."],
+    )
+
+    assert found["факт длиннее двух предложений"]
+
+def test_flaws_leave_a_fact_of_two_sentences():
+    found = flaws_of(
+        title="Бах — Токката и фуга ре минор",
+        fragments=[{"name": "Начало", "start": "0", "audio_file_id": "x"}],
+        facts=["Первое. Второе."],
+    )
+
+    assert not found["факт длиннее двух предложений"]
+
+def test_flaws_catch_a_fact_that_promises_instead_of_telling():
+    found = flaws_of(
+        title="Гайдн — «Времена года»",
+        fragments=[{"name": "Весна", "start": "0", "audio_file_id": "x"}],
+        facts=["Интересно, что оратория начинается с зимы."],
+    )
+
+    assert found["факт начинается с обещания"]
+
+def test_flaws_catch_mozart_speaking_of_himself_in_the_third_person():
+    found = flaws_of(
+        title="Моцарт — Симфония №40",
+        composer="Моцарт",
+        fragments=[{"name": "Начало", "start": "0", "audio_file_id": "x"}],
+        facts=["Моцарт внёс симфонию в каталог 25 июля 1788 года."],
+    )
+
+    assert found["Моцарт говорит о себе в третьем лице"]
+
+def test_flaws_allow_mozart_to_be_named_inside_someone_elses_words():
+    found = flaws_of(
+        title="Моцарт — «Свадьба Фигаро», увертюра",
+        composer="Моцарт",
+        fragments=[{"name": "Увертюра", "start": "0", "audio_file_id": "x"}],
+        facts=["Оркестр заорал «Виват, великий Моцарт!», и я едва устоял."],
+    )
+
+    assert not found["Моцарт говорит о себе в третьем лице"]
+
+def test_flaws_leave_another_composer_named_in_the_third_person():
+    found = flaws_of(
+        title="Бетховен — «К Элизе»",
+        composer="Бетховен",
+        fragments=[{"name": "Начало", "start": "0", "audio_file_id": "x"}],
+        facts=["Моцарт в его годы уже объехал пол-Европы."],
+    )
+
+    assert not found["Моцарт говорит о себе в третьем лице"]
