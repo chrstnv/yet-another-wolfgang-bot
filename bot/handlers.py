@@ -344,7 +344,7 @@ async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     hidden = storage.hide_options(context.bot_data["db"], update.effective_user.id)
     text, keyboard = settings_view(hidden)
 
-    await update.message.reply_text(text, reply_markup=keyboard)
+    await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 @one_at_a_time
 async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -360,7 +360,9 @@ async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE
     await acknowledge(query, SETTINGS_TOAST[hidden])
 
     text, keyboard = settings_view(hidden)
-    await telegram_call(lambda: query.edit_message_text(text, reply_markup=keyboard))
+    await telegram_call(lambda: query.edit_message_text(
+        text, reply_markup=keyboard, parse_mode="HTML"
+    ))
 
 @one_at_a_time
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -501,7 +503,9 @@ async def streak_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     remember_seen(update, context, session)
     context.user_data["quiz"] = session
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=STREAK_START)
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=STREAK_START, parse_mode="HTML"
+    )
     await send_question(update, context)
 
 @one_at_a_time
@@ -575,6 +579,7 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")]
             ]),
+            parse_mode="HTML",
         )
         return
 

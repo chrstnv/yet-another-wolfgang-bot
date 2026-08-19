@@ -18,8 +18,8 @@ def test_every_sign_falls_back_to_something_readable():
         assert fallback in sign
 
 def test_the_answer_signs_stand_before_the_reply():
-    assert ANSWER_CORRECT == f"{CORRECT_SIGN} {{reply}}"
-    assert ANSWER_WRONG == f"{WRONG_SIGN} {{reply}}"
+    assert ANSWER_CORRECT == f"{CORRECT_SIGN} <i>{{reply}}</i>"
+    assert ANSWER_WRONG == f"{WRONG_SIGN} <i>{{reply}}</i>"
 
 def test_every_question_carries_wolfgang():
     assert all(line.startswith(QUESTION_SIGN) for line in QUESTION_VARIANTS)
