@@ -19,7 +19,7 @@
       quiz.py           отбор карточек, ловушки, порядок вопросов
       progress.py       сборка подписей и итогов
       storage.py        SQLite: ответы, рекорды, отправленные аудио
-      data.py           все тексты бота
+      texts.py          все тексты бота
    bot/                 переходник к Telegram
       handlers.py       экраны, кнопки, ретраи
       keyboards.py      меню

@@ -11,7 +11,7 @@ from telegram.ext import ContextTypes
 from core import progress
 from core import quiz
 from core import storage
-from core.data import (
+from core.texts import (
     CLOSE_BUTTON, GREETING, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD, PROGRESS_RECORD,
     PROGRESS_TITLE, PROGRESS_WEAKEST, QUESTION_VARIANTS, QUIZ_EXPIRED, REPLY_DECKS,
     STREAK_FRESH,
@@ -471,7 +471,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await acknowledge(query)
         return
 
-    _, chosen_id = query.data.split(":")
+    _, chosen_id = query.texts.split(":")
     card_id = quiz.current_card_id(session)
     card = context.bot_data["library"]["by_id"][card_id]
 

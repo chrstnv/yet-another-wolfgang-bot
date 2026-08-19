@@ -1,7 +1,7 @@
 from core import progress
 import pytest
 from core import quiz
-from core.data import QUESTION_VARIANTS, STREAK_NEW_RECORD_PLUS, STREAK_RESULTS, VERDICTS
+from core.texts import QUESTION_VARIANTS, STREAK_NEW_RECORD_PLUS, STREAK_RESULTS, VERDICTS
 from core.progress import card_naming, visible_fragment
 
 CARDS = [
