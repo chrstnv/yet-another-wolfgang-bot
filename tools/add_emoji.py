@@ -4,6 +4,11 @@
         --emoji 🎹 --image ~/Desktop/happy.webp \
         --emoji 🎻 --image ~/Desktop/grumpy.webp
 
+Существующий набор дополняется, а не создаётся заново, — и это главное, ради
+чего стоит звать этот инструмент, а не собирать набор руками. При пересборке
+Телеграм выдаёт новые идентификаторы, и все, что уже стоят в текстах бота,
+разом перестают работать; дописанному эмодзи выдаётся один новый.
+
 Набор создаётся от имени бота, поэтому его имя обязано кончаться на
 `_by_<имя_бота>` — суффикс дописывается сам. Владельцу бота нужен Telegram
 Premium: без него кастомные эмодзи не отправляются.
@@ -35,7 +40,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from telegram import Bot, InputSticker
-from telegram.error import TelegramError
+from telegram.error import BadRequest, TelegramError
 
 SIZE = 100
 
@@ -49,6 +54,20 @@ def parse_args() -> argparse.Namespace:
                         help="запасной эмодзи для каждой картинки, в том же порядке")
 
     return parser.parse_args()
+
+async def exists(bot: Bot, name: str) -> bool:
+    """Есть ли уже такой набор.
+
+    Отсутствие набора Телеграм сообщает тем же BadRequest, что и опечатку
+    в имени, — но опечатка тут невозможна: имя собрано из аргумента и
+    имени бота.
+    """
+    try:
+        await bot.get_sticker_set(name)
+    except BadRequest:
+        return False
+
+    return True
 
 async def build(args: argparse.Namespace) -> int:
     token, owner = os.getenv("BOT_TOKEN"), os.getenv("ADMIN_CHAT_ID")
@@ -74,15 +93,20 @@ async def build(args: argparse.Namespace) -> int:
         ))
 
     try:
-        await bot.create_new_sticker_set(
-            user_id=int(owner), name=name, title=args.title,
-            stickers=stickers, sticker_type="custom_emoji",
-        )
+        if await exists(bot, name):
+            for sticker in stickers:
+                await bot.add_sticker_to_set(user_id=int(owner), name=name, sticker=sticker)
+            print(f"В набор {name} добавлено: {len(stickers)}.\n")
+        else:
+            await bot.create_new_sticker_set(
+                user_id=int(owner), name=name, title=args.title,
+                stickers=stickers, sticker_type="custom_emoji",
+            )
+            print(f"Набор {name} создан.\n")
     except TelegramError as error:
-        print(f"Не удалось создать набор {name}: {error}")
+        print(f"Не получилось: {error}")
         return 1
 
-    print(f"Набор {name} создан.\n")
     for sticker in (await bot.get_sticker_set(name)).stickers:
         print(f'  {sticker.emoji}  <tg-emoji emoji-id="{sticker.custom_emoji_id}">{sticker.emoji}</tg-emoji>')
 

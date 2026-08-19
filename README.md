@@ -80,7 +80,7 @@ python -m tools.add_emoji --help  # собрать набор кастомных
 ## Тесты и хуки
 
 ```bash
-make test     # 191 тест
+make test     # 203 теста
 make hooks    # хуки перед коммитом в оба репозитория
 ```
 
