@@ -1,4 +1,5 @@
 import asyncio
+import pathlib
 from types import SimpleNamespace
 
 import pytest
@@ -176,3 +177,19 @@ def test_answered_keyboard_keeps_the_options_and_adds_a_way_on():
     labels = [button.text for row in markup.inline_keyboard for button in row]
 
     assert labels == ["Верди — «Аида»", "Бизе — «Кармен»", "Григ — «Утро»", NEXT_BUTTON]
+
+def test_module_names_are_not_used_as_attributes():
+    """Слепое переименование модуля не должно трогать чужие атрибуты.
+
+    Когда data.py стал texts.py, замена по всему файлу превратила заодно
+    query.data — данные нажатой кнопки — в query.texts, и ответ на вопрос
+    падал с AttributeError. Тесты этого не заметили: quiz_answer живёт целиком
+    внутри Telegram и в них не заходит.
+    """
+    source = pathlib.Path(__file__).parent.parent / "bot" / "handlers.py"
+    lines = [
+        line for line in source.read_text(encoding="utf-8").splitlines()
+        if ".texts" in line and "core.texts" not in line
+    ]
+
+    assert lines == []

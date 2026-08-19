@@ -503,7 +503,7 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await acknowledge(query)
         return
 
-    _, chosen_id = query.texts.split(":")
+    _, chosen_id = query.data.split(":")
     card_id = quiz.current_card_id(session)
     card = context.bot_data["library"]["by_id"][card_id]
 
