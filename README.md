@@ -14,6 +14,7 @@
 
 ```
    main.py              сборка приложения и роутинг
+   Makefile             короткие команды: make run, make test, make check
    core/                ничего не знает про Telegram
       content.py        чтение библиотеки и её проверки
       quiz.py           отбор карточек, ловушки, порядок вопросов
@@ -41,7 +42,18 @@
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # и заполнить BOT_TOKEN с CONTENT_PATH
-python main.py
+make run
+```
+
+Дальше окружение активировать не нужно: `make` берёт питон из `.venv` сам.
+Список команд — просто `make`:
+
+```
+   run       запустить бота
+   test      прогнать тесты
+   check     проверить библиотеку карточек
+   record    принять текущие изъяны за норму
+   hooks     поставить хуки перед коммитом
 ```
 
 Без `CONTENT_PATH` бот не стартует и скажет об этом: библиотека карточек живёт
@@ -50,9 +62,9 @@ python main.py
 ## Работа с библиотекой
 
 ```bash
-python -m tools.check_content            # проверить карточки
-python -m tools.check_content --record   # принять текущие числа за норму
-python -m tools.add_card --help          # добавить карточку или перерезать фрагмент
+make check                       # проверить карточки
+make record                      # принять текущие числа за норму
+python -m tools.add_card --help  # добавить карточку или перерезать фрагмент
 ```
 
 `check_content` делит найденное надвое. **Поломки** — то, без чего бот не
@@ -67,8 +79,8 @@ python -m tools.add_card --help          # добавить карточку и�
 ## Тесты и хуки
 
 ```bash
-python -m pytest              # 188 тестов
-sh hooks/install.sh     # хуки перед коммитом в оба репозитория
+make test     # 188 тестов
+make hooks    # хуки перед коммитом в оба репозитория
 ```
 
 Хук в этом репозитории гоняет тесты и проверку библиотеки, хук в репозитории
