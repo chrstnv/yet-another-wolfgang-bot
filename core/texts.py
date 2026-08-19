@@ -58,6 +58,8 @@ PROGRESS_HEARD = "🎧 Произведений услышано: <b>{seen}</b>"
 PROGRESS_CORRECT = "✅ Верно: <b>{correct}</b> из {answered} — {accuracy}%"
 PROGRESS_RECORD = "🔥 Лучшая серия: <b>{record}</b> подряд"
 PROGRESS_WEAKEST = "<b>Вот на этом вы спотыкались</b>"
+# точка держит строку списком: без неё названия со счётом читаются сплошняком
+PROGRESS_WEAKEST_ITEM = "• {title} — {correct} из {attempts}"
 
 GREETING = (
     "Привет! Я Вольфганг. Да, тот самый.\n\n"

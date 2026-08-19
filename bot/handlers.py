@@ -16,7 +16,8 @@ from core.texts import (
     CLOSE_BUTTON, GREETING, NEXT_BUTTON, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD,
     QUIZ_TITLE,
     PROGRESS_RECORD,
-    PROGRESS_TITLE, PROGRESS_WEAKEST, QUESTION_VARIANTS, QUIZ_EXPIRED, REPLY_DECKS,
+    PROGRESS_TITLE, PROGRESS_WEAKEST, PROGRESS_WEAKEST_ITEM, QUESTION_VARIANTS,
+    QUIZ_EXPIRED, REPLY_DECKS,
     STREAK_FRESH,
     REVEAL_ANSWERS, SETTINGS,
     SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
@@ -604,7 +605,9 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         for card in missed:
             # названия идут в разметку, а в них живут кавычки и амперсанды
             title = html.escape(library["by_id"][card["card_id"]]["title"])
-            lines.append(f"{title} — {card['correct']} из {card['attempts']}")
+            lines.append(PROGRESS_WEAKEST_ITEM.format(
+                title=title, correct=card["correct"], attempts=card["attempts"],
+            ))
 
     buttons = []
     if missed:
