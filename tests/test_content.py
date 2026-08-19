@@ -269,3 +269,47 @@ def test_flaws_leave_another_composer_named_in_the_third_person():
     )
 
     assert not found["Моцарт говорит о себе в третьем лице"]
+
+def test_flaws_catch_two_facts_telling_the_same_story():
+    found = flaws_of(
+        title="Григ — Танец Анитры",
+        fragments=[{"name": "Танец", "start": "0", "audio_file_id": "x"}],
+        facts=[
+            "Григ носил в кармане резиновую лягушку и тёр её перед выходом на сцену.",
+            "Перед концертом Григ тёр резиновую лягушку, которую носил в кармане.",
+        ],
+    )
+
+    assert found["факты повторяют друг друга"]
+
+def test_flaws_leave_two_facts_about_different_things():
+    found = flaws_of(
+        title="Григ — Танец Анитры",
+        fragments=[{"name": "Танец", "start": "0", "audio_file_id": "x"}],
+        facts=[
+            "Григ носил в кармане резиновую лягушку и тёр её перед выходом на сцену.",
+            "Писать музыку к «Перу Гюнту» он сперва не хотел: считал поэму немузыкальной.",
+        ],
+    )
+
+    assert not found["факты повторяют друг друга"]
+
+def test_flaws_catch_a_description_repeating_the_title_further_along():
+    found = flaws_of(
+        title="Бетховен — Скрипичный концерт",
+        fragments=[{"name": "Начало", "start": "0", "audio_file_id": "x"}],
+        description="Единственный скрипичный концерт Бетховена.",
+        facts=["Факт."],
+    )
+
+    assert found["описание повторяет название"]
+
+def test_flaws_leave_a_description_that_says_something_new():
+    found = flaws_of(
+        title="Бетховен — Скрипичный концерт",
+        fragments=[{"name": "Начало", "start": "0", "audio_file_id": "x"}],
+        description="Начинается с четырёх тихих ударов литавр.",
+        facts=["Факт."],
+    )
+
+    assert not found["описание повторяет название"]

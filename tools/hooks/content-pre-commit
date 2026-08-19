@@ -1,0 +1,23 @@
+#!/bin/sh
+# Проверка карточек перед коммитом в репозиторий с контентом.
+# Сама проверка живёт в репозитории бота — ищем его рядом.
+set -e
+
+root="$(git rev-parse --show-toplevel)"
+bot="$(dirname "$root")/BotProject"
+
+if [ ! -d "$bot" ]; then
+    echo "Репозиторий бота не найден рядом ($bot) — проверка пропущена."
+    exit 0
+fi
+
+python="$bot/.venv/bin/python"
+[ -x "$python" ] || python=python3
+
+cd "$bot"
+"$python" -m tools.check_content > /dev/null || {
+    echo
+    echo "Карточки не прошли проверку. Подробности:"
+    echo "    cd $bot && python -m tools.check_content"
+    exit 1
+}

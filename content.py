@@ -1,3 +1,4 @@
+import itertools
 import json
 import os
 import re
@@ -108,8 +109,21 @@ def bare(text: str) -> str:
 
 # доля общих слов, начиная с которой описание считается пересказом факта
 RETELLING = 0.5
+# доля слов названия, попавших в описание: «Скрипичный концерт» с описанием
+# «единственный скрипичный концерт Бетховена» читается как заикание. Порог выше,
+# чем у пересказа: описание объясняет название, и одно-два общих слова законны
+REPEATING = 0.6
+# доля общих слов у двух фактов одной карточки, при которой это один факт дважды
+TWINS = 0.5
 # сколько символов названия видно на узкой кнопке, прежде чем начнётся многоточие
 VISIBLE = 30
+
+def overlap(one: set, other: set) -> float:
+    """Какая доля меньшего множества сидит в большем."""
+    if not one or not other:
+        return 0.0
+
+    return len(one & other) / min(len(one), len(other))
 
 # отсылка в первом слове факта: он показывается один и опереться ему не на что
 LEANING = re.compile(
@@ -140,6 +154,7 @@ def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
         "описание повторяет название",
         "описание повторяет имя фрагмента",
         "описание пересказывает факт",
+        "факты повторяют друг друга",
         "факт опирается на соседний",
         "факт длиннее двух предложений",
         "факт начинается с обещания",
@@ -185,12 +200,20 @@ def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
             if card.get("composer") == MOZART and THIRD_PERSON_MOZART.search(QUOTED.sub("", fact)):
                 flaws["Моцарт говорит о себе в третьем лице"].append(f"{card_id}: факт {number}")
 
+        # пользователю показывается один факт, но за несколько вопросов подряд он
+        # увидит и соседние: одна история дважды на карточке выглядит как сбой
+        facts = card.get("facts") or []
+        for first, second in itertools.combinations(range(len(facts)), 2):
+            if overlap(meaningful(facts[first]), meaningful(facts[second])) >= TWINS:
+                flaws["факты повторяют друг друга"].append(f"{card_id}: факты {first} и {second}")
+
         description = card.get("description") or ""
         if not description:
             continue
 
-        first = bare(description.split()[0])
-        if len(first) > 4 and first in {bare(word) for word in title.split()}:
+        opening = bare(description.split()[0])
+        repeats_opening = len(opening) > 4 and opening in {bare(word) for word in title.split()}
+        if repeats_opening or overlap(meaningful(title), meaningful(description)) >= REPEATING:
             flaws["описание повторяет название"].append(f"{card_id}: «{description[:50]}…»")
 
         for fragment in fragments:

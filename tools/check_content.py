@@ -1,9 +1,17 @@
 """Проверяет библиотеку карточек, не запуская бота.
 
-    python -m tools.check_content
+    python -m tools.check_content            проверить
+    python -m tools.check_content --record   принять текущие числа за норму
+
+Изъяны не чинятся одним днём: лицензий не записано полторы сотни, засечек — под
+сотню. Поэтому проверка не требует нуля, а держит храповик: числа записаны в
+tools/flaws_baseline.json, и падение наступает, когда какое-то из них выросло.
+Долг зафиксирован, новый копиться не может.
 """
 
+import json
 import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -13,7 +21,29 @@ import content
 # а не для чтения целиком
 EXAMPLES = 5
 
-def main() -> int:
+BASELINE = Path(__file__).with_name("flaws_baseline.json")
+
+def read_baseline() -> dict:
+    if not BASELINE.exists():
+        return {}
+
+    return json.loads(BASELINE.read_text(encoding="utf-8"))
+
+def write_baseline(counts: dict) -> None:
+    BASELINE.write_text(
+        json.dumps(counts, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+def grown(counts: dict, baseline: dict) -> list[str]:
+    """Изъяны, которых стало больше, чем записано в эталоне."""
+    return [
+        f"{name}: было {baseline[name]}, стало {count}"
+        for name, count in sorted(counts.items())
+        if name in baseline and count > baseline[name]
+    ]
+
+def main(record: bool = False) -> int:
     load_dotenv()
 
     try:
@@ -44,9 +74,9 @@ def main() -> int:
         for problem in problems:
             print(f"  {problem}")
 
-    # изъяны не мешают боту работать, поэтому показываются всегда и на код
-    # возврата не влияют: это список для правки, а не отказ собирать библиотеку
     flaws = content.find_flaws(cards)
+    counts = {name: len(items) for name, items in flaws.items()}
+
     if any(flaws.values()):
         print("\nИзъяны:")
         for name, items in flaws.items():
@@ -58,11 +88,23 @@ def main() -> int:
             if len(items) > EXAMPLES:
                 print(f"    … и ещё {len(items) - EXAMPLES}")
 
-    if problems:
+    if record:
+        write_baseline(counts)
+        print("\nЭталон записан.")
+        return 1 if problems else 0
+
+    regressions = grown(counts, read_baseline())
+    if regressions:
+        print("\nИзъянов стало больше:")
+        for line in regressions:
+            print(f"  {line}")
+        print("\nЛибо поправьте, либо примите новое число: --record")
+
+    if problems or regressions:
         return 1
 
-    print("\nПоломок нет.")
+    print("\nПоломок нет, новых изъянов нет.")
     return 0
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(record="--record" in sys.argv))

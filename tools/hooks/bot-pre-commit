@@ -1,0 +1,17 @@
+#!/bin/sh
+# Тесты и проверка библиотеки перед коммитом в репозиторий бота.
+# Ставится через tools/install_hooks.sh, пропускается через git commit --no-verify.
+set -e
+
+root="$(git rev-parse --show-toplevel)"
+python="$root/.venv/bin/python"
+[ -x "$python" ] || python=python3
+
+cd "$root"
+"$python" -m pytest -q
+"$python" -m tools.check_content > /dev/null || {
+    echo
+    echo "Библиотека не прошла проверку. Подробности:"
+    echo "    python -m tools.check_content"
+    exit 1
+}
