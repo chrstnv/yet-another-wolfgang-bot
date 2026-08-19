@@ -554,6 +554,8 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         reply_markup=answered_keyboard(
             session["options"], context.bot_data["library"]["by_id"], card_id, chosen_id
         ),
+        # в подписи живут кастомные эмодзи Вольфганга, а они — разметка
+        parse_mode="HTML",
     ))
     await acknowledge(query)
 

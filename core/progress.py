@@ -1,3 +1,5 @@
+import html
+
 from core import quiz
 from core.texts import (
     ANSWER_CORRECT, ANSWER_DESCRIPTION, ANSWER_FACT, ANSWER_FRAGMENT,
@@ -8,6 +10,16 @@ from core.texts import (
     STREAK_FRESH, STREAK_NEW_RECORD_PLUS, STREAK_RECORD, STREAK_RESULTS, STREAK_TITLE,
     STREAK_TITLE_ZERO, VERDICTS,
 )
+
+def safe(text: str) -> str:
+    """Текст из карточки, пригодный для подписи с разметкой.
+
+    Подписи размечены HTML — иначе кастомные эмодзи Вольфганга были бы видны
+    как тег, — и амперсанд с угловой скобкой в названии перестают быть буквами.
+    Сейчас таких во всей библиотеке нет, но первое же «Bach & Sons» уронило бы
+    отправку целиком.
+    """
+    return html.escape(text, quote=False)
 
 def bare(text: str) -> str:
     """Название без кавычек и регистра — для сравнения с именем фрагмента.
@@ -209,7 +221,17 @@ def answer_caption(
     со справкой. А вот название, описание и фрагмент стоят вплотную друг к другу:
     вместе они читаются как одна фраза, и каждая пустая строка внутри стоила бы
     строки экрана.
+
+    Всё пришедшее из карточки экранируется здесь же: полей много, и любое
+    забытое означало бы неотправленную подпись.
     """
+    naming, fragment, chosen = safe(naming), safe(fragment), safe(chosen)
+    description, fact = safe(description), safe(fact)
+    recording = {
+        key: safe(value) if isinstance(value, str) else value
+        for key, value in recording.items()
+    }
+
     if not correct:
         verdict = ANSWER_WRONG.format(reply=reply)
         template = ANSWER_NAMING_MOZART_WRONG if mozart else ANSWER_NAMING_WRONG

@@ -1,7 +1,10 @@
 from core import progress
 import pytest
 from core import quiz
-from core.texts import QUESTION_VARIANTS, STREAK_NEW_RECORD_PLUS, STREAK_RESULTS, VERDICTS
+from core.texts import (
+    ANSWER_CORRECT, ANSWER_WRONG, CORRECT_SIGN, QUESTION_VARIANTS,
+    STREAK_NEW_RECORD_PLUS, STREAK_OVER_SIGN, STREAK_RESULTS, VERDICTS,
+)
 from core.progress import card_naming, visible_fragment
 
 CARDS = [
@@ -219,7 +222,7 @@ def test_streak_message_puts_the_count_in_the_headline():
 def test_streak_message_counts_a_run_of_nothing_as_zero():
     text = progress.streak_message(0, best=7)
 
-    assert text.startswith("<b>🔥 Серия: 0</b>")
+    assert text.startswith(f"{STREAK_OVER_SIGN} <b>Серия: 0</b>")
 
 def test_streak_message_shows_the_record_after_a_zero_run():
     text = progress.streak_message(0, best=4)
@@ -333,16 +336,20 @@ def caption(**overrides):
 
     return progress.answer_caption(**{**defaults, **overrides})
 
+# реплика идёт в подпись курсивом: это чужой голос среди справки
+SAID_RIGHT = ANSWER_CORRECT.format(reply="Реплика.")
+SAID_WRONG = ANSWER_WRONG.format(reply="Реплика.")
+
 def test_answer_caption_opens_with_wolfgang_speaking():
-    assert caption().startswith("✅ Реплика.\n\n🎼 Это Бизе — Хабанера из «Кармен», выходная ария")
+    assert caption().startswith(SAID_RIGHT + "\n\n🎼 Это Бизе — Хабанера из «Кармен», выходная ария")
 
 def test_answer_caption_names_the_work_before_the_mistake():
     text = caption(correct=False, chosen="Верди — «Аида»")
 
-    assert text.startswith("❌ Реплика.\n\n🎼 Это Бизе — Хабанера из «Кармен», выходная ария Кармен в первом акте. Вы же выбрали Верди — «Аида».")
+    assert text.startswith(SAID_WRONG + "\n\n🎼 Это Бизе — Хабанера из «Кармен», выходная ария Кармен в первом акте. Вы же выбрали Верди — «Аида».")
 
 def test_answer_caption_counts_the_streak_beside_the_reply():
-    assert caption(streak=7).startswith("✅ Реплика.\n\n🔥\u00a07\u00a0подряд.\n\n🎼 Это Бизе")
+    assert caption(streak=7).startswith(SAID_RIGHT + "\n\n🔥\u00a07\u00a0подряд.\n\n🎼 Это Бизе")
 
 def test_answer_caption_runs_the_description_on_from_the_name():
     # одной строкой: вместе они читаются как одна фраза
@@ -351,13 +358,13 @@ def test_answer_caption_runs_the_description_on_from_the_name():
     assert "Кармен», выходная ария Кармен в первом акте." in text
 
 def test_answer_caption_skips_the_description_when_there_is_none():
-    assert caption(description="").startswith("✅ Реплика.\n\n🎼 Это Бизе — Хабанера из «Кармен».")
+    assert caption(description="").startswith(SAID_RIGHT + "\n\n🎼 Это Бизе — Хабанера из «Кармен».")
 
 def test_answer_caption_puts_the_fragment_right_after_the_title():
     assert "из «Кармен», Адажио, выходная ария" in caption(fragment="Адажио")
 
 def test_answer_caption_names_no_fragment_when_there_is_none():
-    assert caption(fragment="").startswith("✅ Реплика.\n\n🎼 Это Бизе — Хабанера из «Кармен», выходная")
+    assert caption(fragment="").startswith(SAID_RIGHT + "\n\n🎼 Это Бизе — Хабанера из «Кармен», выходная")
 
 def test_answer_caption_ends_with_the_credit():
     assert caption().endswith("🎧 Кто-то — Откуда-то")
@@ -389,6 +396,21 @@ def test_answer_caption_keeps_the_fragment_with_the_right_work_after_a_miss():
 
     # «Рондо» — часть того, что звучало, а не того, что выбрали
     assert "из «Кармен», Рондо, выходная ария Кармен в первом акте. Вы же выбрали Верди — «Аида»." in text
+
+def test_answer_caption_escapes_what_came_from_the_card():
+    text = caption(
+        naming="Bach & Sons", fact="Знак < значит меньше",
+        correct=False, chosen="Гендель & друзья",
+    )
+
+    assert "Bach &amp; Sons" in text
+    assert "Знак &lt; значит меньше" in text
+    assert "Гендель &amp; друзья" in text
+    assert "&" not in text.replace("&amp;", "").replace("&lt;", "")
+
+def test_answer_caption_keeps_the_custom_emoji_markup_intact():
+    # экранирование не должно съесть собственную разметку подписи
+    assert caption().startswith(CORRECT_SIGN)
 
 def test_card_naming_prints_a_foreign_original_in_brackets():
     card = {"title": "Делиб — «Лакме», дуэт цветов", "original_title": "Sous le dôme épais"}
