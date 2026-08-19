@@ -2,6 +2,7 @@ import progress
 import pytest
 import quiz
 from data import QUESTION_VARIANTS, STREAK_NEW_RECORD_PLUS, STREAK_RESULTS, VERDICTS
+from progress import card_naming, visible_fragment
 
 CARDS = [
     {"id": "france-capital", "title": "Париж"},
@@ -387,3 +388,48 @@ def test_answer_caption_keeps_the_fragment_with_the_right_work_after_a_miss():
 
     # «Рондо» — часть того, что звучало, а не того, что выбрали
     assert "из «Кармен», Рондо, выходная ария Кармен в первом акте. Вы же выбрали Верди — «Аида»." in text
+
+def test_card_naming_prints_a_foreign_original_in_brackets():
+    card = {"title": "Делиб — «Лакме», дуэт цветов", "original_title": "Sous le dôme épais"}
+    assert card_naming(card) == "Делиб — «Лакме», дуэт цветов (Sous le dôme épais)"
+
+def test_card_naming_drops_an_original_that_repeats_the_title():
+    card = {"title": "Чайковский — увертюра «1812 год»", "original_title": "Увертюра «1812 год»"}
+    assert card_naming(card) == "Чайковский — увертюра «1812 год»"
+
+def test_card_naming_leaves_the_composer_out_when_mozart_speaks():
+    card = {"title": "Моцарт — Реквием, «Лакримоза»"}
+    assert card_naming(card, mozart=True) == "Реквием, «Лакримоза»"
+
+def one_fragment(title, fragment, original=None):
+    card = {"title": title, "fragments": [{"name": fragment}]}
+    if original:
+        card["original_title"] = original
+
+    return card
+
+def test_visible_fragment_keeps_a_name_that_adds_something():
+    card = one_fragment("Григ — «Пер Гюнт»", "Танец Анитры")
+
+    assert visible_fragment(card, "Танец Анитры", "Григ — «Пер Гюнт»") == "Танец Анитры"
+
+def test_visible_fragment_drops_a_name_already_in_the_title():
+    card = one_fragment("Шопен — Ноктюрн №2, Op. 9", "Ноктюрн")
+
+    assert visible_fragment(card, "Ноктюрн", "Шопен — Ноктюрн №2, Op. 9") == ""
+
+def test_visible_fragment_drops_a_name_already_in_the_brackets():
+    card = one_fragment("Россини — ария Фигаро", "Largo al factotum",
+                        original="Largo al factotum, Il barbiere di Siviglia")
+    naming = card_naming(card)
+
+    assert visible_fragment(card, "Largo al factotum", naming) == ""
+
+def test_visible_fragment_keeps_a_name_that_tells_two_parts_apart():
+    card = {
+        "title": "Сен-Санс — Интродукция и рондо каприччиозо",
+        "fragments": [{"name": "Интродукция"}, {"name": "Рондо"}],
+    }
+    naming = card["title"]
+
+    assert visible_fragment(card, "Интродукция", naming) == "Интродукция"

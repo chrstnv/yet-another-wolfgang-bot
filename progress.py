@@ -9,6 +9,48 @@ from data import (
     STREAK_TITLE_ZERO, VERDICTS,
 )
 
+def bare(text: str) -> str:
+    """Название без кавычек и регистра — для сравнения с именем фрагмента.
+
+    В названии эпизод бывает в кавычках («Выход гладиаторов»), а во фрагменте
+    без них, и посимвольное сравнение таких двойников не узнаёт.
+    """
+    return text.lower().strip("«»\"" + " .,:;")
+
+def card_naming(card: dict, mozart: bool = False) -> str:
+    """Как вещь называется в подписи к ответу.
+
+    Оригинальное название печатается ради иностранного написания: «Лакме»
+    (Sous le dôme épais). Когда же оно сидит внутри русского, скобки только
+    повторяют сказанное — «увертюра «1812 год» (Увертюра «1812 год»)».
+
+    О себе Вольфганг говорит в первом лице, и фамилия в начале названия
+    становится лишней: «это я — Моцарт — Лакримоза» звучит как заикание.
+    """
+    original = card.get("original_title")
+    if original and bare(original) in bare(card["title"]):
+        original = None
+
+    naming = f"{card['title']} ({original})" if original else card["title"]
+
+    return naming.split(" — ", 1)[-1] if mozart else naming
+
+def visible_fragment(card: dict, fragment: str, naming: str) -> str:
+    """Имя фрагмента — или пустая строка, если оно ничего не добавляет.
+
+    У карточки с одним фрагментом различать нечего, поэтому достаточно, чтобы
+    имя уже прозвучало: «Ноктюрн» при «Ноктюрн №2, Op. 9» — пустой звук, и
+    «Largo al factotum» при «ария Фигаро (Largo al factotum)» тоже.
+
+    Там, где фрагментов несколько, вхождения мало: у «Интродукции и рондо
+    каприччиозо» слово «рондо» сидит внутри названия, но именно оно и различает
+    части, — там имя убирается, только если название им заканчивается.
+    """
+    if len(card["fragments"]) == 1:
+        return "" if bare(fragment) in bare(naming) else fragment
+
+    return "" if bare(card["title"]).endswith(bare(fragment)) else fragment
+
 def question_caption(session: dict) -> str:
     """Подпись к вопросу: сама формулировка и место в квизе.
 
