@@ -206,8 +206,8 @@ def test_streak_message_lists_what_was_heard_for_the_first_time():
     text = progress.streak_message(2, best=7, fresh=["Глинка — «Жаворонок»", "Балакирев — Тарантелла"])
 
     assert "Впервые услышано" in text
-    assert "• Глинка — «Жаворонок»" in text
-    assert "• Балакирев — Тарантелла" in text
+    assert "Глинка — «Жаворонок»" in text
+    assert "Балакирев — Тарантелла" in text
 
 def test_streak_message_says_nothing_about_findings_when_there_are_none():
     assert "Впервые" not in progress.streak_message(2, best=7)

@@ -384,7 +384,7 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     # названия идут в разметку, а в них живут кавычки и амперсанды
     answers_list = [
-        f"• {html.escape(title)} — {'✅ Верно!' if is_correct else '❌ Неправильно.'}"
+        f"{'✅' if is_correct else '❌'} {html.escape(title)}"
         for title, is_correct in quiz.breakdown(session, context.bot_data["library"]["by_id"])
     ]
 
@@ -394,7 +394,7 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     ]
     if fresh:
         answers_list += ["", STREAK_FRESH.format(count=len(fresh))]
-        answers_list += [f"• {title}" for title in fresh]
+        answers_list += list(fresh)
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -578,7 +578,7 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         for card in missed:
             # названия идут в разметку, а в них живут кавычки и амперсанды
             title = html.escape(library["by_id"][card["card_id"]]["title"])
-            lines.append(f"• {title} — {card['correct']} из {card['attempts']}")
+            lines.append(f"{title} — {card['correct']} из {card['attempts']}")
 
     buttons = []
     if missed:
