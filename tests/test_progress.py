@@ -143,8 +143,9 @@ def test_verdict_softens_a_weak_run():
     assert progress.verdict(1, 4) == VERDICTS["weak"].format(correct=1, total=4)
     assert progress.verdict(0, 4) == VERDICTS["weak"].format(correct=0, total=4)
 
-def test_verdict_shows_the_numbers():
-    assert "3 из 5" in progress.verdict(3, 5)
+def test_verdict_leaves_the_score_to_the_heading():
+    """Счёт печатается один раз, в QUIZ_TITLE, — реплика его не повторяет."""
+    assert "3" not in progress.verdict(3, 5)
 
 def test_to_review_takes_only_cards_with_mistakes():
     answers = [

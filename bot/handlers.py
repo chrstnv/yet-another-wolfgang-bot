@@ -14,6 +14,7 @@ from core import quiz
 from core import storage
 from core.texts import (
     CLOSE_BUTTON, GREETING, NEXT_BUTTON, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD,
+    QUIZ_TITLE,
     PROGRESS_RECORD,
     PROGRESS_TITLE, PROGRESS_WEAKEST, QUESTION_VARIANTS, QUIZ_EXPIRED, REPLY_DECKS,
     STREAK_FRESH,
@@ -394,11 +395,12 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     ]
     if fresh:
         answers_list += ["", STREAK_FRESH.format(count=len(fresh))]
-        answers_list += list(fresh)
+        answers_list += [f"• {title}" for title in fresh]
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=(
+            f"{QUIZ_TITLE.format(correct=correct_count, total=total)}\n\n"
             f"{progress.verdict(correct_count, total)}\n\n"
             f"{"\n".join(answers_list)}"
         ),

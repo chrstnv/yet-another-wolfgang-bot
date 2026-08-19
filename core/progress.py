@@ -109,7 +109,7 @@ def streak_message(length: int, best: int, fresh: list[str] = ()) -> str:
         blocks.append(STREAK_RECORD.format(record=best))
 
     if fresh:
-        listed = "\n".join(fresh)
+        listed = "\n".join(f"• {title}" for title in fresh)
         blocks.append(f"{STREAK_FRESH.format(count=len(fresh))}\n{listed}")
 
     return "\n\n".join(blocks)
