@@ -17,7 +17,8 @@ from core.texts import (
     QUIZ_TITLE,
     PROGRESS_RECORD,
     PROGRESS_TITLE, PROGRESS_WEAKEST, PROGRESS_WEAKEST_ITEM, QUESTION_VARIANTS,
-    QUIZ_EXPIRED, REPLY_DECKS,
+    QUIZ_EXPIRED, REPLY_DECKS, RESET_BUTTON, RESET_CONFIRM, RESET_DONE,
+    RESET_NO, RESET_YES,
     STREAK_FRESH,
     REVEAL_ANSWERS, SETTINGS,
     SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
@@ -567,24 +568,25 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(GREETING, reply_markup=MENU_KEYBOARD)
 
-async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await remove_message(update, context, update.message.message_id)
+def progress_view(
+    context: ContextTypes.DEFAULT_TYPE, user_id: int
+) -> tuple[str, InlineKeyboardMarkup]:
+    """Экран прогресса: текст и кнопки под ним.
 
+    Отдельно от отправки, потому что показывается он дважды: по кнопке меню и
+    когда человек передумал сбрасывать прогресс, — а во втором случае экран
+    надо вернуть на место правкой сообщения.
+    """
     library = context.bot_data["library"]
-    answers = storage.get_answers(context.bot_data["db"], update.effective_user.id)
+    answers = storage.get_answers(context.bot_data["db"], user_id)
     stats = progress.summary(answers, library["by_id"])
 
-    if not stats["total"]:
-        await update.message.reply_text(
-            PROGRESS_EMPTY,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")]
-            ]),
-            parse_mode="HTML",
-        )
-        return
+    closing = [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")]
 
-    record = storage.best_streak(context.bot_data["db"], update.effective_user.id)
+    if not stats["total"]:
+        return PROGRESS_EMPTY, InlineKeyboardMarkup([closing])
+
+    record = storage.best_streak(context.bot_data["db"], user_id)
 
     # каждая строчка сводки — про своё, и вплотную они читаются как список
     counters = [
@@ -612,11 +614,59 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     buttons = []
     if missed:
         buttons.append([InlineKeyboardButton("🔁 Работа над ошибками", callback_data="review")])
-    buttons.append([InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")])
+    buttons.append([InlineKeyboardButton(RESET_BUTTON, callback_data="reset")])
+    buttons.append(closing)
 
-    await update.message.reply_text(
-        "\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML"
-    )
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await remove_message(update, context, update.message.message_id)
+
+    text, keyboard = progress_view(context, update.effective_user.id)
+
+    await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+@one_at_a_time
+async def ask_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Спрашивает, точно ли стирать. Стёртое не вернуть, а кнопка одна."""
+    query = update.callback_query
+
+    await telegram_call(lambda: query.edit_message_text(
+        RESET_CONFIRM,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                RESET_YES, callback_data="reset-yes", style=KeyboardButtonStyle.DANGER
+            )],
+            [InlineKeyboardButton(RESET_NO, callback_data="reset-no")],
+        ]),
+        parse_mode="HTML",
+    ))
+    await acknowledge(query)
+
+@one_at_a_time
+async def confirm_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    storage.forget_progress(context.bot_data["db"], update.effective_user.id)
+
+    query = update.callback_query
+
+    await telegram_call(lambda: query.edit_message_text(
+        RESET_DONE,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")]
+        ]),
+        parse_mode="HTML",
+    ))
+    await acknowledge(query)
+
+@one_at_a_time
+async def cancel_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    text, keyboard = progress_view(context, update.effective_user.id)
+
+    await telegram_call(lambda: query.edit_message_text(
+        text, reply_markup=keyboard, parse_mode="HTML"
+    ))
+    await acknowledge(query)
 
 async def audio_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"file_id: {update.message.audio.file_id}")

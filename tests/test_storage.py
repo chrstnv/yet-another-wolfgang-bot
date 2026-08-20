@@ -114,3 +114,31 @@ def test_hide_options_keeps_one_row_per_user(conn):
 
     rows = conn.execute("SELECT COUNT(*) AS n FROM settings WHERE user_id = 1").fetchone()
     assert rows["n"] == 1
+
+def test_forget_progress_wipes_answers_and_streaks(conn):
+    storage.save_answer(conn, 1, "card1", "card1")
+    storage.save_streak_run(conn, 1, 5)
+
+    storage.forget_progress(conn, 1)
+
+    assert storage.get_answers(conn, 1) == []
+    assert storage.best_streak(conn, 1) == 0
+
+def test_forget_progress_touches_no_one_else(conn):
+    storage.save_answer(conn, 1, "card1", "card1")
+    storage.save_answer(conn, 2, "card2", "card2")
+    storage.save_streak_run(conn, 2, 7)
+
+    storage.forget_progress(conn, 1)
+
+    assert storage.get_answers(conn, 2) == [{"card_id": "card2", "chosen": "card2"}]
+    assert storage.best_streak(conn, 2) == 7
+
+def test_forget_progress_keeps_the_settings(conn):
+    """Спрятанные варианты — привычка, а не достижение: сбрасывать их не просили."""
+    storage.set_hide_options(conn, 1, True)
+    storage.save_answer(conn, 1, "card1", "card1")
+
+    storage.forget_progress(conn, 1)
+
+    assert storage.hide_options(conn, 1) is True

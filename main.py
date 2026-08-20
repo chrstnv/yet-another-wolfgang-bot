@@ -12,6 +12,7 @@ from bot.handlers import (
     on_error, start, random_quiz, quiz_answer, audio_file_id, next_question,
     restart_quiz, show_progress, effect_id, chat_id, review_quiz,
     streak_quiz, reveal_options, settings_screen, toggle_hide_options, close_screen,
+    ask_reset, confirm_reset, cancel_reset,
 )
 from bot.keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL, STREAK_LABEL
 
@@ -89,6 +90,12 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(reveal_options, pattern=r"^reveal$"))
 
     app.add_handler(CallbackQueryHandler(toggle_hide_options, pattern=r"^toggle-hide$"))
+
+    app.add_handler(CallbackQueryHandler(ask_reset, pattern=r"^reset$"))
+
+    app.add_handler(CallbackQueryHandler(confirm_reset, pattern=r"^reset-yes$"))
+
+    app.add_handler(CallbackQueryHandler(cancel_reset, pattern=r"^reset-no$"))
 
     app.add_handler(CallbackQueryHandler(close_screen, pattern=r"^close$"))
 

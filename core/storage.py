@@ -122,6 +122,16 @@ def save_answer(conn: sqlite3.Connection, user_id: int, card_id: str, chosen: st
     """, (user_id, card_id, chosen))
     conn.commit()
 
+def forget_progress(conn: sqlite3.Connection, user_id: int) -> None:
+    """Стирает всё, что бот помнит о человеке: ответы и серии.
+
+    Настройки остаются: спрятанные варианты — это не достижение, а привычка,
+    и терять её вместе с прогрессом человек не просил.
+    """
+    conn.execute("DELETE FROM answers WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM streak_runs WHERE user_id = ?", (user_id,))
+    conn.commit()
+
 def get_answers(conn: sqlite3.Connection, user_id: int) -> list[dict]:
     # порядок важен: по нему считается серия верных ответов подряд
     rows = conn.execute(

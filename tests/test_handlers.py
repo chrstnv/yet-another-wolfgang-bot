@@ -7,9 +7,10 @@ from telegram.constants import KeyboardButtonStyle
 from telegram.error import BadRequest, TimedOut
 
 from bot.handlers import (
-    acknowledge, answered_keyboard, expire, one_at_a_time, telegram_call,
+    acknowledge, answered_keyboard, expire, one_at_a_time, progress_view, telegram_call,
 )
-from core.texts import NEXT_BUTTON, QUIZ_EXPIRED
+from core import storage
+from core.texts import CLOSE_BUTTON, NEXT_BUTTON, QUIZ_EXPIRED, RESET_BUTTON
 
 def run(coroutine):
     return asyncio.run(coroutine)
@@ -233,3 +234,29 @@ def test_module_names_are_not_used_as_attributes():
     ]
 
     assert lines == []
+
+def context_with(answers: list[tuple[str, str]]):
+    """Бот с базой в памяти и библиотекой из одной карточки."""
+    db = storage.connect(":memory:")
+    storage.init_schema(db)
+    for card_id, chosen in answers:
+        storage.save_answer(db, 1, card_id, chosen)
+
+    return SimpleNamespace(bot_data={
+        "db": db,
+        "library": {"by_id": {"bizet": {"title": "Бизе — «Кармен»"}}},
+    })
+
+def labels_of(markup):
+    return [button.text for row in markup.inline_keyboard for button in row]
+
+def test_progress_view_offers_a_reset_when_there_is_something_to_lose():
+    _, markup = progress_view(context_with([("bizet", "bizet")]), 1)
+
+    assert RESET_BUTTON in labels_of(markup)
+
+def test_progress_view_offers_no_reset_on_an_empty_screen():
+    """Сбрасывать нечего — и кнопка была бы издевательством не по адресу."""
+    _, markup = progress_view(context_with([]), 1)
+
+    assert labels_of(markup) == [CLOSE_BUTTON]
