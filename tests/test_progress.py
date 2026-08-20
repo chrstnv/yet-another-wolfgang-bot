@@ -1,3 +1,5 @@
+import re
+
 from core import progress
 import pytest
 from core import quiz
@@ -6,6 +8,14 @@ from core.texts import (
     STREAK_NEW_RECORD_PLUS, STREAK_OVER_SIGN, STREAK_RESULTS, VERDICTS,
 )
 from core.progress import card_naming, visible_fragment
+
+def visible(text: str) -> str:
+    """Текст без разметки — таким его видит человек.
+
+    Числа надо искать именно в нём: в теге кастомного эмодзи сидит
+    двадцатизначный идентификатор, и в нём найдётся любая цифра.
+    """
+    return re.sub(r"<[^>]+>", "", text)
 
 CARDS = [
     {"id": "france-capital", "title": "Париж"},
@@ -148,7 +158,7 @@ def test_verdict_softens_a_weak_run():
 
 def test_verdict_leaves_the_score_to_the_heading():
     """Счёт печатается один раз, в QUIZ_TITLE, — реплика его не повторяет."""
-    assert "3" not in progress.verdict(3, 5)
+    assert "3" not in visible(progress.verdict(3, 5))
 
 def test_to_review_takes_only_cards_with_mistakes():
     answers = [
@@ -199,7 +209,7 @@ def test_streak_message_says_nothing_about_the_previous_record_when_it_is_beaten
     text = progress.streak_message(9, best=7)
 
     assert STREAK_RESULTS["record"].format(length=9) in text
-    assert "7" not in text
+    assert "7" not in visible(text)
 
 def test_streak_message_skips_the_record_line_for_the_first_ever_run():
     text = progress.streak_message(0, best=0)
