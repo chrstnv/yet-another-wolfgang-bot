@@ -22,9 +22,6 @@ jobs:
 
     permissions:
       contents: read
-      # федерация обменивает этот токен на IAM-токен Yandex Cloud,
-      # поэтому долгоживущего ключа в секретах не лежит
-      id-token: write
 
     steps:
       # пока облако не настроено, выкладка пропускается целиком: красный main
@@ -32,10 +29,10 @@ jobs:
       - name: ⛅ Настроено ли облако
         id: cloud
         env:
-          YC_SA_ID: ${{ secrets.YC_SA_ID }}
+          YC_SA_JSON: ${{ secrets.YC_SA_JSON }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          if [ -n "$YC_SA_ID" ] && [ -n "$DEPLOY_HOST" ]; then
+          if [ -n "$YC_SA_JSON" ] && [ -n "$DEPLOY_HOST" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
@@ -75,11 +72,14 @@ jobs:
         env:
           CONTENT_PATH: content
 
+      # ключ сервисного аккаунта: права у него ровно одни — класть образы
+      # в реестр. Строже был бы обмен по федерации удостоверений, но его
+      # настройка стоит отдельного вечера
       - name: ⛅ Войти в реестр
         if: steps.cloud.outputs.ready == 'true'
         uses: yc-actions/yc-cr-login@v3
         with:
-          yc-sa-id: ${{ secrets.YC_SA_ID }}
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON }}
 
       # тег — хеш коммита: по нему всегда видно, что именно сейчас работает,
       # и откат сводится к запуску прежнего тега
