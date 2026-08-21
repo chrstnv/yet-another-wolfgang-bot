@@ -1,0 +1,31 @@
+# В образ едет только то, что нужно боту на исполнение. Всё остальное — лишний
+# вес, а секреты и база не должны попасть туда ни при каких обстоятельствах.
+
+.git
+.github
+.venv
+.claude
+.vscode
+.pytest_cache
+__pycache__
+**/__pycache__
+
+# Секреты и данные — их место на сервере, в томе и в файле с правами 600
+.env
+.env.*
+!.env.example
+*.db
+state.pickle
+
+# Тесты, инструменты и документация в боевом образе не нужны
+tests/
+tools/
+hooks/
+docs/
+conftest.py
+Makefile
+README.md
+
+# Эмодзи лежат в репозитории с контентом и нужны только tools.add_emoji
+content/emoji
+content/README.md

@@ -1,0 +1,77 @@
+name: ✅ Проверки
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  tests:
+    name: 🧪 Тесты
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🐍 Поставить питон
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+
+      - name: 📦 Зависимости
+        run: pip install -r requirements.txt
+
+      # секретов не требуют: библиотека карточек в них не участвует
+      - name: 🧪 pytest
+        run: python -m pytest -q
+
+  content:
+    name: 🎼 Карточки
+    runs-on: ubuntu-latest
+
+    steps:
+      # карточки лежат в приватном репозитории, и без ключа их не забрать.
+      # Пока ключ не заведён, проверка пропускается, а не краснеет
+      - name: 🔑 Есть ли ключ к библиотеке
+        id: key
+        env:
+          CONTENT_DEPLOY_KEY: ${{ secrets.CONTENT_DEPLOY_KEY }}
+        run: |
+          if [ -n "$CONTENT_DEPLOY_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Нет секрета CONTENT_DEPLOY_KEY — проверка карточек пропущена"
+          fi
+
+      - if: steps.key.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - name: 🎼 Забрать библиотеку
+        if: steps.key.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: chrstnv/yet-another-wolfgang-content
+          ssh-key: ${{ secrets.CONTENT_DEPLOY_KEY }}
+          path: content
+
+      - name: 🐍 Поставить питон
+        if: steps.key.outputs.ready == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+
+      - name: 📦 Зависимости
+        if: steps.key.outputs.ready == 'true'
+        run: pip install -r requirements.txt
+
+      # тот же храповик, что в hooks/bot-pre-commit: падает, когда изъянов
+      # стало больше, чем записано в tools/flaws_baseline.json
+      - name: 🔍 Проверить библиотеку
+        if: steps.key.outputs.ready == 'true'
+        run: python -m tools.check_content
+        env:
+          CONTENT_PATH: content

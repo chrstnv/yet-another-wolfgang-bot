@@ -1,0 +1,116 @@
+name: 🚀 Сборка и выкладка
+
+on:
+  push:
+    branches:
+      - 'main'
+  # правка карточек тоже доезжает до машины: репозиторий с контентом
+  # присылает сюда сигнал, и образ пересобирается с новой библиотекой
+  repository_dispatch:
+    types: [content-updated]
+  workflow_dispatch:
+
+# Две выкладки разом подрались бы за один контейнер: вторая ждёт первую
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 🚀 В облако
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # федерация обменивает этот токен на IAM-токен Yandex Cloud,
+      # поэтому долгоживущего ключа в секретах не лежит
+      id-token: write
+
+    steps:
+      # пока облако не настроено, выкладка пропускается целиком: красный main
+      # без причины приучает не смотреть на проверки
+      - name: ⛅ Настроено ли облако
+        id: cloud
+        env:
+          YC_SA_ID: ${{ secrets.YC_SA_ID }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          if [ -n "$YC_SA_ID" ] && [ -n "$DEPLOY_HOST" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Секреты облака не заведены — выкладка пропущена"
+          fi
+
+      - if: steps.cloud.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - name: 🎼 Забрать библиотеку
+        if: steps.cloud.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: chrstnv/yet-another-wolfgang-content
+          ssh-key: ${{ secrets.CONTENT_DEPLOY_KEY }}
+          path: content
+
+      - name: 🐍 Поставить питон
+        if: steps.cloud.outputs.ready == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+
+      - name: 📦 Зависимости
+        if: steps.cloud.outputs.ready == 'true'
+        run: pip install -r requirements.txt
+
+      # непроверенное не выкладываем, даже если карточки прислали сигнал
+      - name: 🧪 Тесты
+        if: steps.cloud.outputs.ready == 'true'
+        run: python -m pytest -q
+
+      - name: 🔍 Проверить библиотеку
+        if: steps.cloud.outputs.ready == 'true'
+        run: python -m tools.check_content
+        env:
+          CONTENT_PATH: content
+
+      - name: ⛅ Войти в реестр
+        if: steps.cloud.outputs.ready == 'true'
+        uses: yc-actions/yc-cr-login@v3
+        with:
+          yc-sa-id: ${{ secrets.YC_SA_ID }}
+
+      # тег — хеш коммита: по нему всегда видно, что именно сейчас работает,
+      # и откат сводится к запуску прежнего тега
+      - name: 🛠 Собрать и отправить образ
+        if: steps.cloud.outputs.ready == 'true'
+        env:
+          IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/wolfgang-bot
+        run: |
+          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      # ключ ходит на машину с command="/opt/wolfgang/deploy.sh": оболочку им
+      # не получить, аргументом уходит только хеш коммита. Ssh вызывается
+      # напрямую, а не готовым действием: с принудительной командой на той
+      # стороне важно, что именно уедет в SSH_ORIGINAL_COMMAND
+      - name: 🚀 Выложить
+        if: steps.cloud.outputs.ready == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy
+          # ключ сервера сверяется, а не принимается на веру: иначе выкладку
+          # можно увести на чужую машину вместе с содержимым команды
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              "$USER_NAME@$HOST" "${{ github.sha }}"

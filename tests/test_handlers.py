@@ -6,6 +6,7 @@ import pytest
 from telegram.constants import KeyboardButtonStyle
 from telegram.error import BadRequest, TimedOut
 
+from bot import handlers
 from bot.handlers import (
     acknowledge, answered_keyboard, expire, one_at_a_time, progress_view, telegram_call,
 )
@@ -260,3 +261,44 @@ def test_progress_view_offers_no_reset_on_an_empty_screen():
     _, markup = progress_view(context_with([]), 1)
 
     assert labels_of(markup) == [CLOSE_BUTTON]
+
+class Listener:
+    """Чат владельца, который запоминает всё присланное."""
+
+    def __init__(self):
+        self.sent = []
+
+    async def send_message(self, chat_id, text):
+        self.sent.append((chat_id, text))
+
+def complain(bot, error=ValueError("сломалось")):
+    return run(handlers.tell_the_admin(SimpleNamespace(bot=bot), error))
+
+def test_admin_hears_about_a_breakage(monkeypatch):
+    monkeypatch.setenv("ADMIN_CHAT_ID", "42")
+    handlers.LAST_COMPLAINT = 0
+    bot = Listener()
+
+    complain(bot)
+
+    assert bot.sent == [("42", "Бот споткнулся:\n\nValueError: сломалось")]
+
+def test_admin_is_not_flooded_with_the_same_breakage(monkeypatch):
+    """Одна поломка приходит на каждое нажатие — жаловаться на каждое нельзя."""
+    monkeypatch.setenv("ADMIN_CHAT_ID", "42")
+    handlers.LAST_COMPLAINT = 0
+    bot = Listener()
+
+    for _ in range(5):
+        complain(bot)
+
+    assert len(bot.sent) == 1
+
+def test_nobody_is_bothered_when_there_is_no_admin(monkeypatch):
+    monkeypatch.delenv("ADMIN_CHAT_ID", raising=False)
+    handlers.LAST_COMPLAINT = 0
+    bot = Listener()
+
+    complain(bot)
+
+    assert bot.sent == []

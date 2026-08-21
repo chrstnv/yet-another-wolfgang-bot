@@ -29,6 +29,10 @@ env/
 .coverage
 htmlcov/
 
+# ===== Сборка образа =====
+# карточки копируются сюда из соседнего репозитория перед docker build
+/content/
+
 # ===== Database =====
 *.db
 state.pickle

@@ -1,0 +1,45 @@
+# Боевой запуск на сервере. Локально то же самое поднимается этим же файлом,
+# только IMAGE берётся собранный на месте: `make image && docker compose up`.
+
+services:
+  bot:
+    image: ${BOT_IMAGE:-wolfgang-bot:local}
+    container_name: wolfgang-bot
+    restart: unless-stopped
+
+    # Токен и пути живут в файле с правами 600 рядом с этим compose
+    env_file: .env
+
+    # Единственное, что переживает пересоздание контейнера: база с ответами
+    # и незавершённые квизы
+    volumes:
+      - ./data:/data
+
+    # Портов нет намеренно. Бот работает на long polling — соединение всегда
+    # исходящее, Телеграм к нам не приходит никогда, слушать нечего
+
+    # Права урезаны до нуля: боту нужен только исходящий сокет
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    # Без ограничения журнал растёт до размеров диска. Десять мегабайт на файл
+    # и три файла — это примерно неделя обычной работы
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+    # restart сам по себе спасает от падения, но не от зависшего опроса:
+    # процесс жив, а обновления не приходят. Бот отмечается в /data/heartbeat,
+    # пока опрос работает, — проверяем, что отметка свежая
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time,sys; sys.exit(0 if time.time() - os.path.getmtime('/data/heartbeat') < 120 else 1)"]
+      interval: 60s
+      timeout: 10s
+      start_period: 60s
+      retries: 3

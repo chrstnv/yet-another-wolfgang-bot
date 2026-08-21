@@ -2,7 +2,9 @@ import asyncio
 import functools
 import html
 import logging
+import os
 import random
+import time
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import KeyboardButtonStyle
@@ -51,6 +53,41 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     LOGGER.error("Необработанная ошибка", exc_info=error)
+    await tell_the_admin(context, error)
+
+# кому жаловаться и как часто. Ошибки приходят пачками — одна поломка на каждое
+# нажатие, — и без паузы бот завалил бы чат сообщениями о самом себе
+COMPLAINT_PAUSE = 300
+LAST_COMPLAINT = 0.0
+
+async def tell_the_admin(context: ContextTypes.DEFAULT_TYPE, error: BaseException) -> None:
+    """Сообщает о поломке в чат владельца.
+
+    На сервере логи никто не читает по своей воле, а узнавать о поломке от
+    пользователей — поздно. Само сообщение короткое: подробности со стеком
+    остаются в логах.
+    """
+    global LAST_COMPLAINT
+
+    chat_id = os.getenv("ADMIN_CHAT_ID")
+    if not chat_id:
+        return
+
+    now = time.monotonic()
+    if now - LAST_COMPLAINT < COMPLAINT_PAUSE:
+        return
+    LAST_COMPLAINT = now
+
+    # текст ошибки идёт как есть: в нём попадаются угловые скобки, и разметку
+    # тут включать нельзя. Токен в сообщение не попадает — PTB прячет его в
+    # тексте исключений, но не в адресах внутри трейсбека, а трейсбек мы не шлём
+    try:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"Бот споткнулся:\n\n{type(error).__name__}: {error}"[:400],
+        )
+    except TelegramError as failure:
+        LOGGER.warning("Не получилось пожаловаться админу: %s", failure)
 
 async def acknowledge(query, text: str | None = None, show_alert: bool = False) -> None:
     """Гасит «часики» на нажатой кнопке — последним делом, а не первым.
@@ -75,8 +112,11 @@ async def acknowledge(query, text: str | None = None, show_alert: bool = False) 
 # набор через двести миллисекунд имеет столько же шансов, сколько первый.
 # Пауза постоянная, а не растущая: с растущей пять попыток не уложились бы
 # в пятнадцать секунд, которые Телеграм держит нажатие живым
-ATTEMPTS = 5
-PAUSE = 0.2
+# На замедленном канале коротких заходов не хватает, поэтому оба числа можно
+# поднять переменными окружения, не трогая код: сервер и ноутбук живут в разных
+# сетевых условиях
+ATTEMPTS = int(os.getenv("TELEGRAM_ATTEMPTS", "5"))
+PAUSE = float(os.getenv("TELEGRAM_PAUSE", "0.2"))
 
 # правки, после которых делать нечего. Сообщение не изменилось — так бывает на
 # двойном нажатии; сообщения нет вовсе — его удалили из чата, а кнопки под ним

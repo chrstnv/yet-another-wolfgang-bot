@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from telegram.ext import (
@@ -24,6 +26,37 @@ logging.basicConfig(
 # httpx печатает строчку на каждый запрос к Телеграму, включая опрос раз в секунду
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
+# как часто бот отмечается, что жив, и через сколько отметка считается протухшей
+# (сверяется с healthcheck в compose.yaml)
+HEARTBEAT_PERIOD = 30
+
+async def heartbeat(app: Application) -> None:
+    """Отмечает в файле, что опрос работает, и выходит, если он остановился.
+
+    Процесс может быть жив, а обновления не приходить: политика перезапуска
+    Docker смотрит только на код возврата и такого не замечает. Поэтому опрос
+    проверяется изнутри — и если он умер, бот выходит сам, чтобы его подняли
+    заново. На случай, когда встал весь цикл событий и эта задача тоже не
+    работает, отметка перестаёт обновляться и healthcheck красит контейнер
+    больным; поднимает его тогда сторож на хосте.
+    """
+    path = Path(os.environ["HEARTBEAT_PATH"])
+
+    while True:
+        # отметка ставится первой, а проверка идёт после паузы: задача заводится
+        # до старта опроса, и проверка на первом же круге увидела бы его стоящим
+        path.touch()
+        await asyncio.sleep(HEARTBEAT_PERIOD)
+
+        if app.updater is not None and not app.updater.running:
+            logging.error("Опрос остановился — выходим, чтобы перезапуститься")
+            app.stop_running()
+            return
+
+async def start_heartbeat(app: Application) -> None:
+    if os.getenv("HEARTBEAT_PATH"):
+        app.create_task(heartbeat(app))
+
 def main() -> None:
     # квиз живёт в user_data, а он по умолчанию гибнет вместе с процессом:
     # после перезапуска у висящего вопроса переставали работать кнопки.
@@ -39,10 +72,11 @@ def main() -> None:
         update_interval=1,
     )
 
-    app = (
+    builder = (
         Application.builder()
         .token(os.getenv("BOT_TOKEN"))
         .persistence(persistence)
+        .post_init(start_heartbeat)
         # здоровое соединение с Телеграмом открывается за доли секунды, так что
         # две — это уже приговор: обрываем и набираем заново. Короткий таймаут
         # позволяет сделать шесть заходов там, где раньше хватало на один, а весь
@@ -54,8 +88,16 @@ def main() -> None:
         .pool_timeout(2)
         # загрузка аудио — единственное, что бывает по-настоящему долгим
         .media_write_timeout(60)
-        .build()
     )
+
+    # Телеграм в России замедляют, и с сервера до api.telegram.org можно не
+    # дотянуться. Тогда бот ходит через релей — свой или чужой; здесь это
+    # настройка, а не правка кода, чтобы переключение не требовало выкладки
+    relay = os.getenv("TELEGRAM_BASE_URL")
+    if relay:
+        builder = builder.base_url(f"{relay.rstrip('/')}/bot").base_file_url(f"{relay.rstrip('/')}/file/bot")
+
+    app = builder.build()
 
     db = storage.connect(os.getenv("DB_PATH", "bot.db"))
     storage.init_schema(db)

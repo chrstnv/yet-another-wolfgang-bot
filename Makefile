@@ -4,7 +4,7 @@
 PYTHON := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
 .DEFAULT_GOAL := help
-.PHONY: help run test check record hooks
+.PHONY: help run test check record hooks image
 
 help:  ## показать этот список
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 12
@@ -23,3 +23,8 @@ record:  ## принять текущие изъяны за норму
 
 hooks:  ## поставить хуки перед коммитом
 	sh hooks/install.sh
+
+image:  ## собрать образ с карточками, как это делает CI
+	@rm -rf content && mkdir -p content
+	@cp -R $$(grep '^CONTENT_PATH=' .env | cut -d= -f2)/cards content/cards
+	docker build -t wolfgang-bot:local .
