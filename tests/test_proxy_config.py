@@ -98,7 +98,7 @@ def test_the_best_disguise_wins():
     assert choose(SUBSCRIPTION) == SUBSCRIPTION[3]
 
 def test_a_node_at_home_is_never_chosen():
-    """Фильтрация стоит на границе: выход по ту же сторону ничего не меняет."""
+    """Узел в стране сервера маршрута не меняет — выбирать его незачем."""
     assert choose([SUBSCRIPTION[4], SUBSCRIPTION[0]]) == SUBSCRIPTION[0]
 
 def test_nothing_but_home_leaves_nothing_to_choose():
