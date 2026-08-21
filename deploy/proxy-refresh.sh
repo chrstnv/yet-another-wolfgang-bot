@@ -49,6 +49,9 @@ if cmp -s proxy.json proxy.json.new; then
 fi
 
 mv proxy.json.new proxy.json
+# владелец — nobody из контейнера с Xray: смонтированный файл сохраняет права
+# хозяйской системы, и root-овый конфиг контейнер не прочитает
+chown 65534:65534 proxy.json
 chmod 600 proxy.json
 
 echo "Узел сменился, перезапускаю прокси"
