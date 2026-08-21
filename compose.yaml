@@ -43,3 +43,33 @@ services:
       timeout: 10s
       start_period: 60s
       retries: 3
+
+  # Клиент Xray: через него бот ходит в Телеграм там, где напрямую туда не
+  # достучаться. Включается профилем — локально и там, где Телеграм доступен,
+  # эта служба не поднимается вовсе:
+  #
+  #     COMPOSE_PROFILES=proxy docker compose up -d
+  #
+  # Бот приходит сюда по имени службы, наружу машины порт не выставляется.
+  # Зависимости между службами нет намеренно: бот и так ждёт Телеграм с
+  # повторами, а лишняя связка мешала бы поднимать их по отдельности
+  proxy:
+    image: ${PROXY_IMAGE:-wolfgang-proxy:local}
+    container_name: wolfgang-proxy
+    profiles: ["proxy"]
+    restart: unless-stopped
+
+    # в конфиге лежит пароль от подписки — только на чтение
+    volumes:
+      - ./proxy.json:/etc/xray/config.json:ro
+
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

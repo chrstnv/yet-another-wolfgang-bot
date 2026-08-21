@@ -51,14 +51,20 @@ done
 Обрывов нет или единицы — идём дальше. Больше десятой части — нужен релей,
 см. «Если Телеграм недостижим» в конце.
 
-**Результат замера записать сюда:**
+**Результат замера, 21 августа 2026:**
 
 ```
-дата:
-getMe:
-обрывов из 60:
-вывод:
+напрямую до api.telegram.org   соединение не устанавливается вовсе
+                               (код 000, connect 0.000s — TCP не проходит)
+ya.ru                          302 за 8 мс
+github.com                     200 за 46 мс
+cr.yandex                      404 за 4 мс
+три настоящих адреса Телеграма ни один не отвечает
 ```
+
+Вывод: интернет у машины исправен, заграница доступна, фильтруется адресно
+Телеграм — причём на уровне адресов, а не имён, так что подменой DNS не
+обойтись. Значит, нужен канал наружу; как он устроен — ниже, в разделе «Прокси».
 
 ## Шаг 1. Машина
 
@@ -85,11 +91,16 @@ sudo chown -R 1000:1000 /opt/wolfgang/data
 чтобы пользователь `wolfgang` не мог их переписать.
 
 `/opt/wolfgang/image.env` — обычный файл, владелец `wolfgang` (выкладка правит в
-нём тег), одна строка:
+нём тег бота):
 
 ```
 BOT_IMAGE=cr.yandex/<идентификатор реестра>/wolfgang-bot:latest
+PROXY_IMAGE=cr.yandex/<идентификатор реестра>/wolfgang-proxy:latest
+COMPOSE_PROFILES=proxy
 ```
+
+Последняя строка включает прокси. Там, где Телеграм доступен напрямую, её
+просто не пишут — и служба прокси не поднимается вовсе.
 
 `/opt/wolfgang/.env` — правами `600`, владелец `wolfgang`:
 
@@ -100,7 +111,11 @@ DB_PATH=/data/bot.db
 STATE_PATH=/data/state.pickle
 CONTENT_PATH=/app/content
 HEARTBEAT_PATH=/data/heartbeat
+TELEGRAM_PROXY=socks5://proxy:1080
 ```
+
+`proxy` здесь — имя службы в compose, а не адрес в сети: бот и прокси стоят
+рядом, и наружу машины этот порт не выставляется.
 
 Перенести накопленное **до первого запуска**, иначе бот заведёт пустую базу:
 
@@ -202,9 +217,27 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-```bash
-sudo systemctl enable --now wolfgang-watchdog.timer wolfgang-backup.timer
+```ini
+# /etc/systemd/system/wolfgang-proxy-check.service
+[Service]
+Type=oneshot
+ExecStart=/opt/wolfgang/proxy-check.sh
+
+# /etc/systemd/system/wolfgang-proxy-check.timer
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=15min
+[Install]
+WantedBy=timers.target
 ```
+
+```bash
+sudo systemctl enable --now wolfgang-watchdog.timer wolfgang-backup.timer \
+                           wolfgang-proxy-check.timer
+```
+
+Сторож смотрит на контейнеры, проверка прокси — на канал до Телеграма. Это
+разные отказы: при мёртвом прокси бот жив, здоров и совершенно бесполезен.
 
 ## Восстановление
 
@@ -235,23 +268,49 @@ sudo -u wolfgang /opt/wolfgang/deploy.sh   # с SSH_ORIGINAL_COMMAND=<прежн
 Либо руками: поправить тег в `/opt/wolfgang/image.env` и запустить
 `docker compose up -d`.
 
-## Если Телеграм недостижим
+## Прокси
 
-Бот умеет ходить через релей — это настройка, а не правка кода:
+Телеграм с этой машины недоступен (см. замер выше), поэтому бот ходит к нему
+через клиент Xray, который стоит рядом отдельной службой. В обход уходит
+**только трафик бота**: реестр образов, входящий SSH для выкладки и всё
+остальное продолжают ходить напрямую. Это и есть причина взять прокси, а не
+завернуть в туннель всю машину — иначе выкладка сломалась бы вместе с
+маршрутами.
 
+Нужна ссылка на узел от провайдера VPN — с обфускацией, вида `vless://` или
+`ss://`. Обычные WireGuard и OpenVPN из российских дата-центров сейчас чаще
+всего не соединяются вовсе.
+
+```bash
+# ссылку — в файл, а не в командную строку: в ней пароль,
+# а история оболочки хранится открытым текстом
+nano /tmp/link.txt
+chmod 600 /tmp/link.txt
+
+python3 -m tools.proxy_config "$(cat /tmp/link.txt)" | sudo tee /opt/wolfgang/proxy.json > /dev/null
+sudo chmod 600 /opt/wolfgang/proxy.json
+rm /tmp/link.txt
 ```
-TELEGRAM_BASE_URL=https://релей.example.com
+
+Конвертер лежит в репозитории бота (`tools/proxy_config.py`) и понимает
+`vless://` с Reality и `ss://` в любом из принятых видов.
+
+Проверить канал, не поднимая бота:
+
+```bash
+docker compose run --rm -d --name проба proxy
+docker run --rm --network container:проба curlimages/curl     -s -m 15 --socks5-hostname localhost:1080 -o /dev/null     -w 'код %{http_code}\n' https://api.telegram.org/
+docker stop проба
 ```
 
-Релей — маленькая машина вне России, где nginx проксирует `api.telegram.org`.
-**Доступ к нему обязательно закрыть по IP нашей машины:** открытый релей — это
-чужие токены, которые погонят через вас.
+Ответ `302` — успех: это Телеграм отвечает перенаправлением на запрос корня.
 
-На плохом канале стоит увеличить и упорство самого бота:
+**Слабое место.** Адрес узла зашит в конфиг числом. Если провайдер его сменит
+или подписка кончится, бот замолчит — и не сможет даже пожаловаться, потому что
+жалоба идёт тем же каналом. Поэтому канал проверяется отдельно, с хоста:
 
-```
-TELEGRAM_ATTEMPTS=8
-TELEGRAM_PAUSE=0.5
+```bash
+/opt/wolfgang/proxy-check.sh
 ```
 
 ## Что смотреть, когда что-то не так

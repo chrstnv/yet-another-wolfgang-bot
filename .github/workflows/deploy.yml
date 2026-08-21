@@ -92,6 +92,16 @@ jobs:
           docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
 
+      # прокси живёт своей жизнью и меняется редко, но приезжать на машину
+      # должен из того же реестра: заграничные реестры оттуда недоступны
+      - name: 🛡 Собрать и отправить прокси
+        if: steps.cloud.outputs.ready == 'true'
+        env:
+          IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/wolfgang-proxy
+        run: |
+          docker build -f Dockerfile.proxy -t "$IMAGE:latest" .
+          docker push "$IMAGE:latest"
+
       # ключ ходит на машину с command="/opt/wolfgang/deploy.sh": оболочку им
       # не получить, аргументом уходит только хеш коммита. Ssh вызывается
       # напрямую, а не готовым действием: с принудительной командой на той

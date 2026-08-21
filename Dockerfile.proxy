@@ -1,0 +1,22 @@
+# Клиент Xray — через него бот ходит в Телеграм оттуда, где до него не
+# достучаться напрямую. Собираем свой образ, а не берём готовый: тогда на
+# машину всё приезжает из одного реестра, и точка входа заведомо та, что нужна.
+FROM debian:stable-slim
+
+# Версию можно закрепить при сборке: --build-arg XRAY_URL=...releases/download/v26.7.28/...
+ARG XRAY_URL=https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl unzip \
+ && curl -fsSL -o /tmp/xray.zip "$XRAY_URL" \
+ && unzip -oq /tmp/xray.zip -d /usr/local/xray \
+ && chmod +x /usr/local/xray/xray \
+ && apt-get purge -y curl unzip \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/* /tmp/xray.zip
+
+# Прокси слушает 1080 — порт непривилегированный, root не нужен
+USER nobody
+
+ENTRYPOINT ["/usr/local/xray/xray"]
+CMD ["run", "-c", "/etc/xray/config.json"]
