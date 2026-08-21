@@ -35,4 +35,4 @@ htmlcov/
 
 # ===== Database =====
 *.db
-state.pickle
+*.pickle

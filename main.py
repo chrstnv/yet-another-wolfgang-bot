@@ -18,7 +18,7 @@ from bot.handlers import (
 )
 from bot.keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL, STREAK_LABEL
 
-load_dotenv()
+load_dotenv(os.getenv("ENV_FILE", ".env"))
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO

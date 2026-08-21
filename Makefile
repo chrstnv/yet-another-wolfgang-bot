@@ -4,13 +4,16 @@
 PYTHON := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
 .DEFAULT_GOAL := help
-.PHONY: help run test check record hooks image
+.PHONY: help run test check record hooks image dev
 
 help:  ## показать этот список
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 12
 
 run:  ## запустить бота
 	$(PYTHON) main.py
+
+dev:  ## запустить тестового бота на тестовой библиотеке (.env.dev)
+	ENV_FILE=.env.dev $(PYTHON) main.py
 
 test:  ## прогнать тесты
 	$(PYTHON) -m pytest -q
