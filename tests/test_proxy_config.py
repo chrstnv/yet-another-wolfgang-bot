@@ -1,6 +1,8 @@
 import base64
 
-from tools.proxy_config import build
+import pytest
+
+from tools.proxy_config import build, choose, name_of, nodes
 
 VLESS = (
     "vless://11111111-2222-3333-4444-555555555555@узел.example:443"
@@ -65,3 +67,47 @@ def test_a_slash_inside_base64_does_not_break_the_link():
     node = outbound(f"ss://{secret}@узел.example:8388")["settings"]["servers"][0]
 
     assert node["password"] == "пар/оль"
+
+def test_trojan_keeps_the_password_and_the_disguise():
+    node = outbound("trojan://пароль@узел.example:443?security=tls&sni=a.example#TR")
+
+    assert node["settings"]["servers"][0]["password"] == "пароль"
+    assert node["streamSettings"]["tlsSettings"]["serverName"] == "a.example"
+
+SUBSCRIPTION = [
+    "ss://YWVzLTI1Ni1nY206cGFzcw@ss.example:8388#%F0%9F%87%BA%F0%9F%87%B8%20US%20%5BSS%5D",
+    "trojan://pass@tr.example:443?security=tls#%F0%9F%87%A9%F0%9F%87%AA%20DE%20%5BTrojan%5D",
+    "vless://uuid@plain.example:443?security=tls#%F0%9F%87%AC%F0%9F%87%A7%20GB%20%5BVLESS%5D",
+    "vless://uuid@real.example:443?security=reality&pbk=k#%F0%9F%87%AB%F0%9F%87%AE%20FN%20%5BVLESS%5D",
+    "vless://uuid@moscow.example:443?security=reality&pbk=k#%F0%9F%87%B7%F0%9F%87%BA%20RU%20%5BVLESS%5D",
+]
+
+def test_nodes_reads_a_subscription_hidden_in_base64():
+    packed = base64.b64encode("\n".join(SUBSCRIPTION).encode()).decode()
+
+    assert nodes(packed) == SUBSCRIPTION
+
+def test_nodes_reads_a_subscription_in_the_open():
+    assert nodes("\n".join(SUBSCRIPTION)) == SUBSCRIPTION
+
+def test_name_is_read_through_the_percent_signs():
+    assert name_of(SUBSCRIPTION[1]) == "🇩🇪 DE [Trojan]"
+
+def test_the_best_disguise_wins():
+    """Reality прикидывается чужим сайтом — остальные заметнее."""
+    assert choose(SUBSCRIPTION) == SUBSCRIPTION[3]
+
+def test_a_node_at_home_is_never_chosen():
+    """Фильтрация стоит на границе: выход по ту же сторону ничего не меняет."""
+    assert choose([SUBSCRIPTION[4], SUBSCRIPTION[0]]) == SUBSCRIPTION[0]
+
+def test_nothing_but_home_leaves_nothing_to_choose():
+    with pytest.raises(SystemExit):
+        choose([SUBSCRIPTION[4]])
+
+def test_a_wish_narrows_the_choice():
+    assert choose(SUBSCRIPTION, "GB") == SUBSCRIPTION[2]
+
+def test_an_impossible_wish_is_said_out_loud():
+    with pytest.raises(SystemExit):
+        choose(SUBSCRIPTION, "Антарктида")

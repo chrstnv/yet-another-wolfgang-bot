@@ -233,7 +233,7 @@ WantedBy=timers.target
 
 ```bash
 sudo systemctl enable --now wolfgang-watchdog.timer wolfgang-backup.timer \
-                           wolfgang-proxy-check.timer
+                           wolfgang-proxy-check.timer wolfgang-proxy-refresh.timer
 ```
 
 Сторож смотрит на контейнеры, проверка прокси — на канал до Телеграма. Это
@@ -281,19 +281,32 @@ sudo -u wolfgang /opt/wolfgang/deploy.sh   # с SSH_ORIGINAL_COMMAND=<прежн
 `ss://`. Обычные WireGuard и OpenVPN из российских дата-центров сейчас чаще
 всего не соединяются вовсе.
 
-```bash
-# ссылку — в файл, а не в командную строку: в ней пароль,
-# а история оболочки хранится открытым текстом
-nano /tmp/link.txt
-chmod 600 /tmp/link.txt
+Лучше давать не ссылку на один узел, а **ссылку-подписку**: провайдеры меняют
+адреса узлов, и вшитый однажды адрес рано или поздно замолкает. Из подписки
+узел выбирается заново, поэтому её можно перечитывать по расписанию.
 
-python3 -m tools.proxy_config "$(cat /tmp/link.txt)" | sudo tee /opt/wolfgang/proxy.json > /dev/null
+```bash
+# ссылка — секрет, она открывает всю подписку
+sudo nano /opt/wolfgang/subscription
+sudo chmod 600 /opt/wolfgang/subscription
+
+# конвертер кладётся рядом: им пользуется и обновление по расписанию
+sudo curl -fsSL -o /opt/wolfgang/proxy_config.py \
+  https://raw.githubusercontent.com/chrstnv/yet-another-wolfgang-bot/main/tools/proxy_config.py
+
+# посмотреть, что вообще есть в подписке
+python3 /opt/wolfgang/proxy_config.py "$(sudo cat /opt/wolfgang/subscription)" --list
+
+# и собрать конфиг
+python3 /opt/wolfgang/proxy_config.py "$(sudo cat /opt/wolfgang/subscription)" \
+  | sudo tee /opt/wolfgang/proxy.json > /dev/null
 sudo chmod 600 /opt/wolfgang/proxy.json
-rm /tmp/link.txt
 ```
 
-Конвертер лежит в репозитории бота (`tools/proxy_config.py`) и понимает
-`vless://` с Reality и `ss://` в любом из принятых видов.
+Конвертер понимает `vless://` с Reality, `trojan://` и `ss://`. Узел выбирается
+по качеству маскировки: сперва Reality, потом обычный TLS, потом shadowsocks.
+Страну можно назвать: `--pick DE`. Узлы внутри России отсеиваются всегда —
+фильтрация стоит на границе, и выход по ту же сторону от неё ничего не меняет.
 
 Проверить канал, не поднимая бота:
 
@@ -305,9 +318,28 @@ docker stop проба
 
 Ответ `302` — успех: это Телеграм отвечает перенаправлением на запрос корня.
 
-**Слабое место.** Адрес узла зашит в конфиг числом. Если провайдер его сменит
-или подписка кончится, бот замолчит — и не сможет даже пожаловаться, потому что
-жалоба идёт тем же каналом. Поэтому канал проверяется отдельно, с хоста:
+**Обновление узла.** `proxy-refresh.sh` раз в сутки перечитывает подписку и,
+если выбранный узел сменился, переписывает конфиг и перезапускает прокси.
+Прежний конфиг подменяется только на непустой — иначе неудачное скачивание
+выключило бы бота своими руками.
+
+```ini
+# /etc/systemd/system/wolfgang-proxy-refresh.service
+[Service]
+Type=oneshot
+ExecStart=/opt/wolfgang/proxy-refresh.sh
+
+# /etc/systemd/system/wolfgang-proxy-refresh.timer
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+[Install]
+WantedBy=timers.target
+```
+
+**Слабое место остаётся.** Если подписка кончится или провайдер закроет доступ,
+бот замолчит — и не сможет даже пожаловаться, потому что жалоба идёт тем же
+каналом. Поэтому канал проверяется отдельно, с хоста:
 
 ```bash
 /opt/wolfgang/proxy-check.sh

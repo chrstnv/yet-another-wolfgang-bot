@@ -96,7 +96,7 @@ python -m tools.add_emoji --help  # собрать набор кастомных
 ## Тесты и хуки
 
 ```bash
-make test     # 218 тестов
+make test     # 227 тестов
 make hooks    # хуки перед коммитом в оба репозитория
 ```
 
