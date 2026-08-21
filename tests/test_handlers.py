@@ -276,7 +276,7 @@ def complain(bot, error=ValueError("сломалось")):
 
 def test_admin_hears_about_a_breakage(monkeypatch):
     monkeypatch.setenv("ADMIN_CHAT_ID", "42")
-    handlers.LAST_COMPLAINT = 0
+    handlers.LAST_COMPLAINT = None
     bot = Listener()
 
     complain(bot)
@@ -286,7 +286,7 @@ def test_admin_hears_about_a_breakage(monkeypatch):
 def test_admin_is_not_flooded_with_the_same_breakage(monkeypatch):
     """Одна поломка приходит на каждое нажатие — жаловаться на каждое нельзя."""
     monkeypatch.setenv("ADMIN_CHAT_ID", "42")
-    handlers.LAST_COMPLAINT = 0
+    handlers.LAST_COMPLAINT = None
     bot = Listener()
 
     for _ in range(5):
@@ -296,7 +296,7 @@ def test_admin_is_not_flooded_with_the_same_breakage(monkeypatch):
 
 def test_nobody_is_bothered_when_there_is_no_admin(monkeypatch):
     monkeypatch.delenv("ADMIN_CHAT_ID", raising=False)
-    handlers.LAST_COMPLAINT = 0
+    handlers.LAST_COMPLAINT = None
     bot = Listener()
 
     complain(bot)

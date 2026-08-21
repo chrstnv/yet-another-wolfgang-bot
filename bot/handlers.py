@@ -58,7 +58,9 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
 # кому жаловаться и как часто. Ошибки приходят пачками — одна поломка на каждое
 # нажатие, — и без паузы бот завалил бы чат сообщениями о самом себе
 COMPLAINT_PAUSE = 300
-LAST_COMPLAINT = 0.0
+# None, а не ноль: monotonic отсчитывается от загрузки машины, и на только что
+# поднятой ноль означал бы «жаловались только что», а не «не жаловались ни разу»
+LAST_COMPLAINT: float | None = None
 
 async def tell_the_admin(context: ContextTypes.DEFAULT_TYPE, error: BaseException) -> None:
     """Сообщает о поломке в чат владельца.
@@ -74,7 +76,7 @@ async def tell_the_admin(context: ContextTypes.DEFAULT_TYPE, error: BaseExceptio
         return
 
     now = time.monotonic()
-    if now - LAST_COMPLAINT < COMPLAINT_PAUSE:
+    if LAST_COMPLAINT is not None and now - LAST_COMPLAINT < COMPLAINT_PAUSE:
         return
     LAST_COMPLAINT = now
 
