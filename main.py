@@ -97,6 +97,14 @@ def main() -> None:
     if relay:
         builder = builder.base_url(f"{relay.rstrip('/')}/bot").base_file_url(f"{relay.rstrip('/')}/file/bot")
 
+    # либо через прокси на самой машине — так проще всего пустить в обход
+    # только трафик бота, не трогая маршруты: всё остальное (реестр образов,
+    # входящий SSH для выкладки) продолжает ходить напрямую.
+    # Опрос обновлений живёт в отдельном соединении, поэтому прокси задаётся дважды
+    proxy = os.getenv("TELEGRAM_PROXY")
+    if proxy:
+        builder = builder.proxy(proxy).get_updates_proxy(proxy)
+
     app = builder.build()
 
     db = storage.connect(os.getenv("DB_PATH", "bot.db"))
