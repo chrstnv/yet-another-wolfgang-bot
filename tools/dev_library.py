@@ -33,6 +33,7 @@ import unicodedata
 from pathlib import Path
 
 from dotenv import load_dotenv
+from telegram import Bot
 
 from core import content
 from tools.add_card import cut_fragment, upload
@@ -88,6 +89,12 @@ def silent_card(card: dict) -> dict:
     return {key: card[key] for key in ("title", "composer") if card.get(key)}
 
 async def build(args: argparse.Namespace) -> int:
+    # Первым делом — от чьего имени заливаем. Идентификаторы привязаны к боту,
+    # и залить тестовую библиотеку боевым токеном — самая лёгкая из ошибок:
+    # всё проходит успешно, а работать не будет
+    async with Bot(os.environ["BOT_TOKEN"]) as bot:
+        print(f"Заливаю от имени @{(await bot.get_me()).username}\n")
+
     library = content.load_library()
     by_id = library["by_id"]
 
