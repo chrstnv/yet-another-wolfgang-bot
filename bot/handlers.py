@@ -789,19 +789,49 @@ async def toggle_favourite(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             )
         ))
 
+    await redraw_favourites(update, context)
     await acknowledge(query, said, show_alert=False)
+
+async def redraw_favourites(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Перерисовывает список избранного, если он открыт.
+
+    Список и присланный фрагмент — разные сообщения. Расстаться с вещью под
+    музыкой и увидеть её же в списке выше — значит не поверить ни одному экрану.
+    Если список уже закрыли, правка не найдёт сообщения и тихо пропустится.
+    """
+    screen = context.user_data.get("favourites")
+    if not screen:
+        return
+
+    text, keyboard = favourites_view(context, update.effective_user.id, screen["offset"])
+
+    await telegram_call(lambda: context.bot.edit_message_text(
+        text,
+        chat_id=update.effective_chat.id,
+        message_id=screen["message_id"],
+        reply_markup=keyboard,
+        parse_mode="HTML",
+    ))
 
 async def show_favourites(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await remove_message(update, context, update.message.message_id)
 
     text, keyboard = favourites_view(context, update.effective_user.id)
+    message = await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
-    await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+    # запоминаем, где висит список: его придётся править, когда вещь уберут
+    # из-под присланного фрагмента
+    context.user_data["favourites"] = {"message_id": message.message_id, "offset": 0}
 
 @one_at_a_time
 async def favourites_page(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    text, keyboard = favourites_view(context, update.effective_user.id, int(query.data.split(":")[1]))
+    offset = int(query.data.split(":")[1])
+    text, keyboard = favourites_view(context, update.effective_user.id, offset)
+
+    context.user_data["favourites"] = {
+        "message_id": query.message.message_id, "offset": offset
+    }
 
     await telegram_call(lambda: query.edit_message_text(
         text, reply_markup=keyboard, parse_mode="HTML"
@@ -828,6 +858,7 @@ async def mark_fragment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await telegram_call(lambda: query.edit_message_reply_markup(
         reply_markup=fragment_keyboard(card_id, int(number), favourite)
     ))
+    await redraw_favourites(update, context)
     await acknowledge(query, said)
 
 @one_at_a_time

@@ -425,3 +425,40 @@ def test_a_card_without_a_fragment_is_not_offered_to_keep():
     markup = answered_keyboard(["bizet"], option_cards(), "bizet", "bizet")
 
     assert FAVOURITE_ADD not in labels_of(markup)
+
+class Editor:
+    """Бот, который запоминает, что и где правил."""
+
+    def __init__(self):
+        self.edits = []
+
+    async def edit_message_text(self, text, chat_id=None, message_id=None,
+                                reply_markup=None, parse_mode=None):
+        self.edits.append((message_id, text))
+
+def redraw(context, chat=1, user=1):
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=user), effective_chat=SimpleNamespace(id=chat)
+    )
+
+    return run(handlers.redraw_favourites(update, context))
+
+def test_the_open_list_follows_what_happened_under_the_music():
+    bot = Editor()
+    context = context_of([MORNING], marked=[("grieg-morning", "Утро")])
+    context.bot = bot
+    context.user_data = {"favourites": {"message_id": 77, "offset": 0}}
+
+    redraw(context)
+
+    assert [message_id for message_id, _ in bot.edits] == [77]
+
+def test_a_list_nobody_opened_is_not_redrawn():
+    bot = Editor()
+    context = context_of([MORNING])
+    context.bot = bot
+    context.user_data = {}
+
+    redraw(context)
+
+    assert bot.edits == []
