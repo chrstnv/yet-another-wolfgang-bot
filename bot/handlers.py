@@ -292,13 +292,16 @@ def answered_keyboard(
             style=style,
         )])
 
+    # сердце и «дальше» в одном ряду: одно необязательное, другое — то, ради чего
+    # сюда пришли, и разводить их по строкам значило бы уравнять в важности
+    onward = [InlineKeyboardButton(NEXT_BUTTON, callback_data="next")]
     if fragment is not None:
-        rows.append([InlineKeyboardButton(
+        onward.insert(0, InlineKeyboardButton(
             FAVOURITE_REMOVE if favourite else FAVOURITE_ADD,
             callback_data=f"fav:{card_id}:{fragment}",
-        )])
+        ))
 
-    rows.append([InlineKeyboardButton(NEXT_BUTTON, callback_data="next")])
+    rows.append(onward)
 
     return InlineKeyboardMarkup(rows)
 
