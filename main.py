@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from telegram import Update
 from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler, MessageHandler,
     PersistenceInput, PicklePersistence, TypeHandler, filters,

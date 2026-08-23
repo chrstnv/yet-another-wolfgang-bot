@@ -23,6 +23,11 @@ jobs:
       - name: 📦 Зависимости
         run: pip install -r requirements.txt
 
+      # ловит необъявленные имена в коде, который тесты не выполняют:
+      # main.py собирает приложение и в тесты не заходит
+      - name: 🔎 pyflakes
+        run: python -m pyflakes main.py bot core tools tests
+
       # секретов не требуют: библиотека карточек в них не участвует
       - name: 🧪 pytest
         run: python -m pytest -q
