@@ -8,6 +8,7 @@ python="$root/.venv/bin/python"
 [ -x "$python" ] || python=python3
 
 cd "$root"
+"$python" -m pyflakes main.py bot core tools tests
 "$python" -m pytest -q
 "$python" -m tools.check_content > /dev/null || {
     echo
