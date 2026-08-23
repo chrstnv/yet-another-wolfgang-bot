@@ -1,6 +1,5 @@
 from argparse import Namespace
 
-import pytest
 
 from tools.add_card import build_card
 

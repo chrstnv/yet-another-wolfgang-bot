@@ -12,6 +12,7 @@ from bot.handlers import (
     fragment_keyboard, fragment_number, one_at_a_time, progress_view,
     telegram_call, PAGE,
 )
+from bot.keyboards import MENU_KEYBOARD, MENU_VERSION
 from core import storage
 from core.texts import (
     CLOSE_BUTTON, FAVOURITE_ADD, FAVOURITE_DROP, FAVOURITE_REMOVE,
@@ -462,3 +463,52 @@ def test_a_list_nobody_opened_is_not_redrawn():
     redraw(context)
 
     assert bot.edits == []
+class Chat:
+    """Чат, который запоминает присланное вместе с клавиатурой."""
+
+    def __init__(self):
+        self.sent = []
+
+    async def send_message(self, text, reply_markup=None, parse_mode=None):
+        self.sent.append((text, reply_markup))
+
+def update_from(chat):
+    return SimpleNamespace(effective_chat=chat)
+
+def test_an_outdated_menu_is_replaced():
+    chat, data = Chat(), {}
+
+    run(handlers.refresh_menu(update_from(chat), SimpleNamespace(user_data=data)))
+
+    assert len(chat.sent) == 1
+    assert chat.sent[0][1] is MENU_KEYBOARD
+    assert data["menu"] == MENU_VERSION
+
+def test_a_fresh_menu_is_left_alone():
+    chat = Chat()
+
+    run(handlers.refresh_menu(update_from(chat), SimpleNamespace(user_data={"menu": MENU_VERSION})))
+
+    assert chat.sent == []
+
+def test_the_menu_is_not_sent_twice():
+    """Иначе о перестановке сообщалось бы на каждое нажатие."""
+    chat, data = Chat(), {}
+    context = SimpleNamespace(user_data=data)
+
+    for _ in range(3):
+        run(handlers.refresh_menu(update_from(chat), context))
+
+    assert len(chat.sent) == 1
+
+def test_a_menu_that_did_not_arrive_is_offered_again():
+    """Сеть подвела — отметку возвращаем, иначе человек останется со старым меню."""
+    class Silent(Chat):
+        async def send_message(self, text, reply_markup=None, parse_mode=None):
+            raise TimedOut()
+
+    data = {}
+
+    run(handlers.refresh_menu(update_from(Silent()), SimpleNamespace(user_data=data)))
+
+    assert "menu" not in data
