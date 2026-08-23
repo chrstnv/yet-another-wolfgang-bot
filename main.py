@@ -6,7 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler, MessageHandler,
-    PersistenceInput, PicklePersistence, filters,
+    PersistenceInput, PicklePersistence, TypeHandler, filters,
 )
 
 from core import content, storage
@@ -16,7 +16,7 @@ from bot.handlers import (
     streak_quiz, reveal_options, settings_screen, toggle_hide_options, close_screen,
     ask_reset, confirm_reset, cancel_reset,
     show_favourites, favourites_page, toggle_favourite, drop_favourite,
-    play_favourite,
+    play_favourite, refresh_menu,
 )
 from bot.keyboards import (
     RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL,
@@ -167,6 +167,10 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.AUDIO, audio_file_id))
 
     app.add_handler(MessageHandler(filters.TEXT, effect_id))
+
+    # группа после основных обработчиков: сначала человек получает ответ на своё
+    # действие, и только потом — весть о том, что меню переставили
+    app.add_handler(TypeHandler(Update, refresh_menu), group=1)
 
     # без этого первая же неудачная попытка достучаться до Телеграма роняет
     # запуск: «Failed run number 0 of 0. Aborting». Сеть после пробуждения
