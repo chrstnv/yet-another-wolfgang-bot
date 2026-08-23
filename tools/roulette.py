@@ -90,7 +90,8 @@ def duration_of(path: Path) -> float:
 
     return float(result.stdout.strip())
 
-def fits(start: float, total: float, busy: list[tuple[float, float]], gap: float = APART) -> bool:
+def fits(start: float, total: float, busy: list[tuple[float, float]],
+         gap: float = APART, after: float = 0.0) -> bool:
     """Годится ли засечка: не на краях записи и не поверх уже занятого.
 
     Занятое — это отобранный руками фрагмент (его-то как раз узнают) и куски,
@@ -101,7 +102,7 @@ def fits(start: float, total: float, busy: list[tuple[float, float]], gap: float
     съедает всё свободное место, и кусок не находится вовсе. Тогда его
     отбрасывают и довольствуются тем, что куски просто не перекрываются.
     """
-    if start < total * HEAD or start + LENGTH > total * (1 - TAIL):
+    if start < max(after, total * HEAD) or start + LENGTH > total * (1 - TAIL):
         return False
 
     return all(
@@ -176,6 +177,9 @@ def parse_args() -> argparse.Namespace:
                         help="папка с исходниками, можно повторять")
     parser.add_argument("--source", type=Path,
                         help="назвать файл прямо, если по имени он не находится")
+    parser.add_argument("--after", type=float, default=0.0, metavar="СЕК",
+                        help="не резать раньше этой секунды: в файле бывает записано "
+                             "больше одной вещи")
     parser.add_argument("--check", action="store_true",
                         help="ничего не резать, только показать состояние библиотеки")
 
@@ -211,7 +215,8 @@ def credit(card: dict, source: Path) -> dict:
 
     return {}
 
-async def cut_pieces(card: dict, source: Path, count: int, workspace: Path) -> list[dict]:
+async def cut_pieces(card: dict, source: Path, count: int, workspace: Path,
+                     after: float = 0.0) -> list[dict]:
     """Нарезает и заливает куски одной карточки — до нужного числа.
 
     Считается общее количество, а не добавленное: повторный запуск добирает
@@ -238,7 +243,7 @@ async def cut_pieces(card: dict, source: Path, count: int, workspace: Path) -> l
             gap = 0.0
 
         start = round(dice.uniform(0, total), 1)
-        if not fits(start, total, busy, gap):
+        if not fits(start, total, busy, gap, after):
             continue
 
         piece = workspace / f"{card['id']}-{start}.mp3"
@@ -409,7 +414,7 @@ async def build(args: argparse.Namespace) -> int:
                 continue
 
             print(f"{card['id']} ← {source.name}")
-            pieces = await cut_pieces(card, source, args.count, Path(workspace))
+            pieces = await cut_pieces(card, source, args.count, Path(workspace), args.after)
             if not pieces:
                 continue
 

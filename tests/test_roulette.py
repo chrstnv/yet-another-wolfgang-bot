@@ -86,3 +86,8 @@ def test_the_gap_can_be_given_up():
 
 def test_pieces_never_overlap_even_without_a_gap():
     assert not fits(20.0, 73.0, [(0.0, 35.0)], gap=0.0)
+
+def test_a_floor_keeps_the_cut_out_of_a_foreign_piece():
+    """В файле «Прелюдия и свадебный хор» первая половина — не то произведение."""
+    assert not fits(113.0, 393.0, [], after=199.0)
+    assert fits(250.0, 393.0, [], after=199.0)
