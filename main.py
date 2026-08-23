@@ -15,8 +15,8 @@ from bot.handlers import (
     restart_quiz, show_progress, effect_id, chat_id, review_quiz,
     streak_quiz, reveal_options, settings_screen, toggle_hide_options, close_screen,
     ask_reset, confirm_reset, cancel_reset,
-    show_favourites, favourites_page, toggle_favourite, drop_favourite,
-    play_favourite,
+    show_favourites, favourites_page, toggle_favourite,
+    play_favourite, mark_fragment,
 )
 from bot.keyboards import (
     RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL,
@@ -160,7 +160,7 @@ def main() -> None:
 
     app.add_handler(CallbackQueryHandler(play_favourite, pattern=r"^favplay:"))
 
-    app.add_handler(CallbackQueryHandler(drop_favourite, pattern=r"^favdrop:"))
+    app.add_handler(CallbackQueryHandler(mark_fragment, pattern=r"^favmark:"))
 
     app.add_handler(CallbackQueryHandler(close_screen, pattern=r"^close$"))
 

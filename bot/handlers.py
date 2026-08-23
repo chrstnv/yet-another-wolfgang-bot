@@ -20,7 +20,8 @@ from core.texts import (
     PROGRESS_RECORD,
     PROGRESS_TITLE, PROGRESS_WEAKEST, PROGRESS_WEAKEST_ITEM, QUESTION_VARIANTS,
     FAVOURITE_ADD, FAVOURITE_DECKS, FAVOURITE_GONE, FAVOURITE_REMOVE,
-    FAVOURITES_BACK, FAVOURITES_COUNT, FAVOURITES_DROP, FAVOURITES_EMPTY,
+    FAVOURITE_DROP, FAVOURITE_RETURN,
+    FAVOURITES_BACK, FAVOURITES_COUNT, FAVOURITES_EMPTY,
     FAVOURITES_MORE, FAVOURITES_TITLE,
     QUIZ_EXPIRED, REPLY_DECKS, RESET_BUTTON, RESET_CONFIRM, RESET_DONE,
     RESET_NO, RESET_YES,
@@ -371,18 +372,15 @@ def favourites_view(
 
     offset = max(0, min(offset, (len(entries) - 1) // PAGE * PAGE))
 
-    rows = []
-    for card, name, number in entries[offset:offset + PAGE]:
-        rows.append([
-            InlineKeyboardButton(
-                favourite_title(card, name),
-                callback_data=f"favplay:{card['id']}:{number}",
-            ),
-            InlineKeyboardButton(
-                FAVOURITES_DROP,
-                callback_data=f"favdrop:{card['id']}:{number}:{offset}",
-            ),
-        ])
+    # ряд на строку, без кнопок «убрать»: решение расстаться созревает после
+    # прослушивания, поэтому оно и живёт под присланным фрагментом
+    rows = [
+        [InlineKeyboardButton(
+            favourite_title(card, name),
+            callback_data=f"favplay:{card['id']}:{number}",
+        )]
+        for card, name, number in entries[offset:offset + PAGE]
+    ]
 
     moving = []
     if offset:
@@ -485,7 +483,7 @@ def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
 async def close_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
 
-    await remove_message(update, context, query.message.message_id)
+    await delete_screen(update, context, query.message.message_id)
     await acknowledge(query)
 
 async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -729,6 +727,41 @@ def named_fragment(context: ContextTypes.DEFAULT_TYPE, card_id: str, number: str
 
     return card, fragments[position]["name"] if position < len(fragments) else ""
 
+def flip_favourite(
+    context: ContextTypes.DEFAULT_TYPE, user_id: int, card: dict, name: str
+) -> tuple[bool, str]:
+    """Отмечает или снимает отметку и подбирает, что Вольфганг на это скажет.
+
+    Своя музыка и чужая — для него события разной приятности, поэтому колоды
+    две. Снятие обходится одной строчкой: расстаются с отмеченным редко.
+    """
+    db = context.bot_data["db"]
+    deck = "mine" if card.get("composer") == quiz.MOZART else "other"
+    card_id = card["id"]
+
+    if storage.is_favourite(db, user_id, card_id, name):
+        storage.remove_favourite(db, user_id, card_id, name)
+
+        return False, FAVOURITE_GONE[deck]
+
+    storage.add_favourite(db, user_id, card_id, name)
+
+    return True, quiz.next_line(context.user_data, f"favourite-{deck}", FAVOURITE_DECKS[deck])
+
+def fragment_keyboard(card_id: str, number: int, favourite: bool) -> InlineKeyboardMarkup:
+    """Кнопки под переслушанным: расстаться и убрать с глаз.
+
+    «Закрыть» здесь не украшение: аудио в чате складывается в плейлист, и
+    прибранное сразу не заставит плеер перескакивать на него потом.
+    """
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(
+            FAVOURITE_DROP if favourite else FAVOURITE_RETURN,
+            callback_data=f"favmark:{card_id}:{number}",
+        )],
+        [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")],
+    ])
+
 @one_at_a_time
 async def toggle_favourite(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Отмечает прозвучавшее или снимает отметку, а Вольфганг это комментирует.
@@ -744,18 +777,7 @@ async def toggle_favourite(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await acknowledge(query)
         return
 
-    db = context.bot_data["db"]
-    user_id = update.effective_user.id
-    deck = "mine" if card.get("composer") == quiz.MOZART else "other"
-
-    if storage.is_favourite(db, user_id, card_id, name):
-        storage.remove_favourite(db, user_id, card_id, name)
-        said = FAVOURITE_GONE[deck]
-        favourite = False
-    else:
-        storage.add_favourite(db, user_id, card_id, name)
-        said = quiz.next_line(context.user_data, f"favourite-{deck}", FAVOURITE_DECKS[deck])
-        favourite = True
+    favourite, said = flip_favourite(context, update.effective_user.id, card, name)
 
     session = context.user_data.get("quiz")
     if session and quiz.is_answered(session):
@@ -787,22 +809,26 @@ async def favourites_page(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await acknowledge(query)
 
 @one_at_a_time
-async def drop_favourite(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def mark_fragment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Снимает отметку с переслушанного — или возвращает её обратно.
+
+    Кнопка остаётся переключателем: расстались сгоряча, передумали — вернули,
+    не разыскивая вещь заново.
+    """
     query = update.callback_query
-    _, card_id, number, offset = query.data.split(":")
+    _, card_id, number = query.data.split(":")
 
     card, name = named_fragment(context, card_id, number)
-    if name:
-        storage.remove_favourite(
-            context.bot_data["db"], update.effective_user.id, card_id, name
-        )
+    if not name:
+        await acknowledge(query)
+        return
 
-    text, keyboard = favourites_view(context, update.effective_user.id, int(offset))
+    favourite, said = flip_favourite(context, update.effective_user.id, card, name)
 
-    await telegram_call(lambda: query.edit_message_text(
-        text, reply_markup=keyboard, parse_mode="HTML"
+    await telegram_call(lambda: query.edit_message_reply_markup(
+        reply_markup=fragment_keyboard(card_id, int(number), favourite)
     ))
-    await acknowledge(query)
+    await acknowledge(query, said)
 
 @one_at_a_time
 async def play_favourite(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -827,6 +853,7 @@ async def play_favourite(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         caption=favourite_title(card, name),
         title=name,
         performer=recording["performer"],
+        reply_markup=fragment_keyboard(card_id, int(number), favourite=True),
     )
     await acknowledge(query)
 

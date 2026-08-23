@@ -94,7 +94,10 @@ FAVOURITE_REMOVE = "💔"
 
 FAVOURITES_TITLE = "<b>❤️ Избранное</b>"
 FAVOURITES_COUNT = "Отмечено: <b>{count}</b>"
-FAVOURITES_DROP = "💔"
+# под присланным фрагментом места хватает на слова, и они тут нужнее значка:
+# убрать из избранного — действие необратимое, пусть называется полностью
+FAVOURITE_DROP = "💔 Убрать из избранного"
+FAVOURITE_RETURN = "❤️ Вернуть"
 FAVOURITES_MORE = "Ещё ↓"
 FAVOURITES_BACK = "↑ Назад"
 
