@@ -24,6 +24,8 @@ from core.texts import (
     FAVOURITES_BACK, FAVOURITES_COUNT, FAVOURITES_EMPTY,
     FAVOURITES_MORE, FAVOURITES_TITLE,
     QUIZ_EXPIRED, REPLY_DECKS, RESET_BUTTON, RESET_CONFIRM, RESET_DONE,
+    ROULETTE_TOAST, ROULETTE_VARIANTS,
+    SETTINGS_HIDE, SETTINGS_NAUGAD, SETTINGS_SHOW, SETTINGS_THEMES,
     RESET_NO, RESET_YES,
     STREAK_FRESH,
     REVEAL_ANSWERS, SETTINGS,
@@ -404,10 +406,24 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     session = context.user_data["quiz"]
     library = context.bot_data["library"]
     card = library["by_id"][quiz.current_card_id(session)]
-    fragment = quiz.pick_fragment(card)
-    session["fragment"] = fragment["name"]
+
+    # «наугад» — настройка, а не режим: она работает во всех квизах сразу.
+    # Карточке без нарезанных кусков играть с середины нечем, и она честно
+    # играет свой обычный фрагмент, а не выпадает из очереди
+    naugad = (
+        storage.roulette(context.bot_data["db"], update.effective_user.id)
+        and bool(card.get("roulette"))
+    )
+    # у куска с незнакомого места нет имени: в подписи он представляется минутой
+    fragment = quiz.pick_piece(card) if naugad else quiz.pick_fragment(card)
+    session["naugad"] = naugad
+    session["fragment"] = fragment.get("name", "")
+    session["start"] = fragment.get("start", "")
     session["recording"] = quiz.recording_of(card, fragment)
-    session["question"] = quiz.next_line(session, "question", QUESTION_VARIANTS)
+    session["question"] = quiz.next_line(
+        session, "наугад" if naugad else "question",
+        ROULETTE_VARIANTS if naugad else QUESTION_VARIANTS,
+    )
 
     # варианты выбираются один раз: если открывать их кнопкой, набор должен
     # остаться тем же, а не перетасоваться заново
@@ -468,12 +484,18 @@ async def reveal_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     ))
     await acknowledge(query)
 
-def settings_view(hidden: bool) -> tuple[str, InlineKeyboardMarkup]:
+def settings_view(hidden: bool, naugad: bool) -> tuple[str, InlineKeyboardMarkup]:
+    said = {True: SETTINGS_ON, False: SETTINGS_OFF}
+
     return (
-        SETTINGS.format(state=SETTINGS_ON if hidden else SETTINGS_OFF),
+        SETTINGS.format(hidden=said[hidden], naugad=said[naugad]),
         InlineKeyboardMarkup([
             [InlineKeyboardButton(
-                "Выключить" if hidden else "Включить", callback_data="toggle-hide"
+                SETTINGS_SHOW if hidden else SETTINGS_HIDE, callback_data="toggle-hide"
+            )],
+            [InlineKeyboardButton(
+                SETTINGS_THEMES if naugad else SETTINGS_NAUGAD,
+                callback_data="toggle-roulette",
             )],
             [InlineKeyboardButton(CLOSE_BUTTON, callback_data="close")],
         ]),
@@ -486,18 +508,27 @@ async def close_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await delete_screen(update, context, query.message.message_id)
     await acknowledge(query)
 
+def current_settings(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> tuple[bool, bool]:
+    db = context.bot_data["db"]
+
+    return storage.hide_options(db, user_id), storage.roulette(db, user_id)
+
 async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await remove_message(update, context, update.message.message_id)
 
-    hidden = storage.hide_options(context.bot_data["db"], update.effective_user.id)
-    text, keyboard = settings_view(hidden)
+    text, keyboard = settings_view(*current_settings(context, update.effective_user.id))
 
     await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
+async def redraw_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text, keyboard = settings_view(*current_settings(context, update.effective_user.id))
+
+    await telegram_call(lambda: update.callback_query.edit_message_text(
+        text, reply_markup=keyboard, parse_mode="HTML"
+    ))
+
 @one_at_a_time
 async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-
     db = context.bot_data["db"]
     user_id = update.effective_user.id
 
@@ -505,12 +536,19 @@ async def toggle_hide_options(update: Update, context: ContextTypes.DEFAULT_TYPE
     storage.set_hide_options(db, user_id, hidden)
 
     # всплывающая подсказка: смена слова в тексте сама по себе незаметна
-    await acknowledge(query, SETTINGS_TOAST[hidden])
+    await acknowledge(update.callback_query, SETTINGS_TOAST[hidden])
+    await redraw_settings(update, context)
 
-    text, keyboard = settings_view(hidden)
-    await telegram_call(lambda: query.edit_message_text(
-        text, reply_markup=keyboard, parse_mode="HTML"
-    ))
+@one_at_a_time
+async def toggle_roulette(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    db = context.bot_data["db"]
+    user_id = update.effective_user.id
+
+    naugad = not storage.roulette(db, user_id)
+    storage.set_roulette(db, user_id, naugad)
+
+    await acknowledge(update.callback_query, ROULETTE_TOAST[naugad])
+    await redraw_settings(update, context)
 
 @one_at_a_time
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -682,13 +720,17 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     storage.save_answer(context.bot_data["db"], update.effective_user.id, card_id, chosen_id)
 
     correct = chosen_id == card_id
-    deck = quiz.reply_deck(card, correct)
+    naugad = session.get("naugad", False)
+    deck = quiz.reply_deck(card, correct, naugad)
     reply = quiz.next_line(session, deck, REPLY_DECKS[deck])
 
     mozart = card.get("composer") == quiz.MOZART
     naming = progress.card_naming(card, mozart)
 
-    fragment = progress.visible_fragment(card, session["fragment"], naming)
+    fragment = (
+        progress.moment(session["start"]) if naugad
+        else progress.visible_fragment(card, session["fragment"], naming)
+    )
 
     await telegram_call(lambda: query.edit_message_caption(
         caption=progress.answer_caption(
@@ -705,8 +747,10 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         ),
         reply_markup=answered_keyboard(
             session["options"], context.bot_data["library"]["by_id"], card_id, chosen_id,
-            fragment=fragment_number(card, session["fragment"]),
-            favourite=storage.is_favourite(
+            # в «наугад» отмечать нечего: избранное хранится по имени
+            # фрагмента, а у случайного куска имени нет
+            fragment=None if naugad else fragment_number(card, session["fragment"]),
+            favourite=not naugad and storage.is_favourite(
                 context.bot_data["db"], update.effective_user.id,
                 card_id, session["fragment"],
             ),

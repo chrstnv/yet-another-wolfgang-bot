@@ -320,3 +320,13 @@ def test_chosen_id_follows_the_position(session=None):
     quiz.record_answer(session, "b", "a")
 
     assert quiz.chosen_id(session) == "a"
+
+def test_a_miss_from_a_random_place_is_answered_more_gently():
+    """Не узнать вещь по середине разработки — не позор."""
+    assert quiz.reply_deck({}, correct=False, naugad=True) == "wrong-roulette"
+
+def test_a_miss_elsewhere_is_answered_as_before():
+    assert quiz.reply_deck({}, correct=False) == "wrong"
+
+def test_a_random_place_is_praised_like_any_other():
+    assert quiz.reply_deck({}, correct=True, naugad=True) == "correct"

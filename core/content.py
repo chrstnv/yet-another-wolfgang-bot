@@ -57,6 +57,14 @@ def find_problems(cards: list[dict]) -> list[str]:
                 if not recording.get(field):
                     problems.append(f"{card_id}: у фрагмента {number} в recording нет {field}")
 
+        # куски для режима «наугад»: имени у них нет намеренно — назвать место
+        # значило бы выдать ответ, — а вот засечка и звук обязательны
+        for number, piece in enumerate(card.get("roulette") or [], start=1):
+            if not piece.get("audio_file_id"):
+                problems.append(f"{card_id}: у случайного куска {number} нет audio_file_id")
+            if not piece.get("start"):
+                problems.append(f"{card_id}: у случайного куска {number} нет start")
+
         for field in REQUIRED_FOR_PLAYABLE:
             if not card.get(field):
                 problems.append(f"{card_id}: есть запись, но нет {field}")
@@ -85,6 +93,8 @@ def load_library(directory: Path | None = None) -> dict:
         "cards": cards,
         "by_id": {card["id"]: card for card in cards},
         "playable": [card for card in cards if card.get("fragments")],
+        # карточки, у которых есть что играть в режиме «наугад»
+        "roulette": [card for card in cards if card.get("roulette")],
     }
 
 # Ниже — проверки не поломки, а качества. Поломка не даёт боту запуститься,

@@ -188,3 +188,32 @@ def test_resetting_progress_keeps_the_collection(conn):
     storage.forget_progress(conn, 1)
 
     assert len(storage.favourites(conn, 1)) == 1
+
+def test_playing_from_random_places_is_off_until_asked(conn):
+    assert storage.roulette(conn, 1) is False
+
+def test_the_random_places_switch_goes_both_ways(conn):
+    storage.set_roulette(conn, 1, True)
+    assert storage.roulette(conn, 1) is True
+
+    storage.set_roulette(conn, 1, False)
+    assert storage.roulette(conn, 1) is False
+
+def test_two_switches_do_not_overwrite_each_other(conn):
+    """Обе настройки живут в одной строке — легко затереть соседнюю."""
+    storage.set_hide_options(conn, 1, True)
+    storage.set_roulette(conn, 1, True)
+
+    assert storage.hide_options(conn, 1) is True
+    assert storage.roulette(conn, 1) is True
+
+def test_a_switch_added_later_reaches_the_old(conn):
+    """База у людей заполнена, а CREATE TABLE новых колонок не заводит."""
+    conn.execute("DROP TABLE settings")
+    conn.execute("CREATE TABLE settings (user_id INTEGER PRIMARY KEY, hide_options INTEGER NOT NULL DEFAULT 0)")
+    conn.execute("INSERT INTO settings (user_id, hide_options) VALUES (1, 1)")
+
+    storage.init_settings(conn)
+
+    assert storage.hide_options(conn, 1) is True
+    assert storage.roulette(conn, 1) is False
