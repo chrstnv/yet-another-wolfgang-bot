@@ -732,6 +732,11 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         else progress.visible_fragment(card, session["fragment"], naming)
     )
 
+    # У случайного куска нет имени, а избранное хранится по имени — поэтому
+    # в «наугад» сердечко отмечает не услышанное место, а саму вещь: её первый
+    # отобранный фрагмент, тот самый, по которому её узнают
+    marked = card["fragments"][0]["name"] if naugad else session["fragment"]
+
     await telegram_call(lambda: query.edit_message_caption(
         caption=progress.answer_caption(
             naming=naming,
@@ -747,12 +752,9 @@ async def quiz_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         ),
         reply_markup=answered_keyboard(
             session["options"], context.bot_data["library"]["by_id"], card_id, chosen_id,
-            # в «наугад» отмечать нечего: избранное хранится по имени
-            # фрагмента, а у случайного куска имени нет
-            fragment=None if naugad else fragment_number(card, session["fragment"]),
-            favourite=not naugad and storage.is_favourite(
-                context.bot_data["db"], update.effective_user.id,
-                card_id, session["fragment"],
+            fragment=fragment_number(card, marked),
+            favourite=storage.is_favourite(
+                context.bot_data["db"], update.effective_user.id, card_id, marked,
             ),
         ),
         # в подписи живут кастомные эмодзи Вольфганга, а они — разметка
