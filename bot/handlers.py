@@ -15,7 +15,7 @@ from core import progress
 from core import quiz
 from core import storage
 from core.texts import (
-    CLOSE_BUTTON, GREETING, NEXT_BUTTON, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD,
+    CLOSE_BUTTON, GREETING, MENU_UPDATED, NEXT_BUTTON, PROGRESS_CORRECT, PROGRESS_EMPTY, PROGRESS_HEARD,
     QUIZ_TITLE,
     PROGRESS_RECORD,
     PROGRESS_TITLE, PROGRESS_WEAKEST, PROGRESS_WEAKEST_ITEM, QUESTION_VARIANTS,
@@ -28,7 +28,7 @@ from core.texts import (
     REVEAL_ANSWERS, SETTINGS,
     SETTINGS_OFF, SETTINGS_ON, SETTINGS_TOAST, STREAK_START,
 )
-from bot.keyboards import MENU_KEYBOARD
+from bot.keyboards import MENU_KEYBOARD, MENU_VERSION
 
 # Идентификаторы стандартных эффектов одинаковы у всех, получить их можно
 # хендлером effect_id: отправить боту сообщение с эффектом.
@@ -815,7 +815,39 @@ async def play_favourite(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await acknowledge(query)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(GREETING, reply_markup=MENU_KEYBOARD)
+    # приветствие и так несёт свежую клавиатуру, так что отмечаем её показанной:
+    # иначе refresh_menu следом сообщит о перестановке тому, кто меню видит впервые
+    context.user_data["menu"] = MENU_VERSION
+
+    await update.message.reply_text(
+        GREETING, reply_markup=MENU_KEYBOARD, parse_mode="HTML"
+    )
+
+async def refresh_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Присылает меню тем, кто видит устаревшее.
+
+    Клиент показывает ту клавиатуру, что пришла последней, и сам её не обновляет.
+    Без этого новый пункт достался бы только нажавшим «Старт» заново — то есть
+    почти никому.
+
+    Обработчик стоит в группе после основных: сначала человек получает ответ на
+    своё действие, и только потом — сообщение о перестановке. Хранится отметка
+    в user_data, который и так переживает перезапуск: заводить ради номера
+    таблицу в базе не за что.
+    """
+    if context.user_data.get("menu") == MENU_VERSION or not update.effective_chat:
+        return
+
+    context.user_data["menu"] = MENU_VERSION
+
+    try:
+        await update.effective_chat.send_message(
+            MENU_UPDATED, reply_markup=MENU_KEYBOARD, parse_mode="HTML"
+        )
+    except TelegramError as error:
+        # не доехало — покажем в следующий раз, отметку вернём обратно
+        context.user_data.pop("menu", None)
+        LOGGER.warning("Не получилось обновить меню: %s", error)
 
 def progress_view(
     context: ContextTypes.DEFAULT_TYPE, user_id: int
