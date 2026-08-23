@@ -512,3 +512,9 @@ def test_a_menu_that_did_not_arrive_is_offered_again():
     run(handlers.refresh_menu(update_from(Silent()), SimpleNamespace(user_data=data)))
 
     assert "menu" not in data
+
+def test_the_heart_stays_when_a_random_place_played():
+    """Сохранять нечего только на первый взгляд: сама вещь никуда не делась."""
+    markup = answered_keyboard(["bizet"], option_cards(), "bizet", "bizet", fragment=0)
+
+    assert FAVOURITE_ADD in labels_of(markup)
