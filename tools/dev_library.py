@@ -26,6 +26,7 @@ import argparse
 import asyncio
 import json
 import os
+import difflib
 import re
 import sys
 import tempfile
@@ -46,21 +47,102 @@ DURATION = "20"
 # совпадением. Одно слово — это обычно просто фамилия композитора, мало
 MATCH = 2
 
-def words(text: str) -> set:
-    text = unicodedata.normalize("NFKD", text.lower())
+# Номер части пишут то цифрой, то римской: «No. 5» и «V. Allegro». Приводим
+# к одному виду, иначе пятая симфония не отличается от девятой
+# Служебные слова не опознают ничего, но набирают проходной балл: «mozart» и
+# «the» — уже два общих слова, и ария Царицы ночи сходится с увертюрой к
+# «Свадьбе Фигаро». Короткие отсеиваются длиной, эти приходится назвать
+STOP = {
+    "the", "and", "for", "from", "with", "der", "die", "das", "den", "und",
+    "les", "des", "del", "dei", "della", "aus", "mit", "per", "con", "sur",
+    "arr", "arranged", "version", "excerpt", "complete", "solo", "major", "minor",
+}
 
-    return {word for word in re.split(r"[^a-z0-9]+", text) if len(word) > 2}
+ROMAN = {
+    "i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5",
+    "vi": "6", "vii": "7", "viii": "8", "ix": "9", "x": "10",
+}
+
+def words(text: str) -> set:
+    """Значимые слова названия. Числа значимы всегда, даже однозначные.
+
+    Диакритика снимается, а не разделяет: после разложения «Dvořák» — это «d»,
+    «v», «o», «r», галочка, «a», ударение, «k», и если галочку считать границей
+    слова, фамилия распадается на «dvor» и «ak», ни с чем не совпадая.
+    """
+    text = unicodedata.normalize("NFKD", text.lower())
+    text = "".join(sign for sign in text if not unicodedata.combining(sign))
+
+    found = set()
+    for token in re.split(r"[^a-z0-9]+", text):
+        if token in ROMAN:
+            found.add(ROMAN[token])
+        elif token in STOP:
+            continue
+        elif token.isdigit() or len(token) > 2:
+            # «preludes» и «prelude» — одно слово: без этого вторая прелюдия
+            # не становится претендентом, и ничья, которая спасла бы от
+            # неверного выбора, не случается
+            found.add(token[:-1] if len(token) > 4 and token.endswith("s") else token)
+
+    return found
+
+# Исходники лежат вперемешку: mp3, flac, m4a. cut_fragment чужой кодек
+# перекодирует сам, так что искать только mp3 значит не найти половину
+SOUNDS = ("*.mp3", "*.flac", "*.m4a", "*.wav", "*.ogg", "*.oga", "*.opus")
+
+def sound_files(folder: Path) -> list[Path]:
+    return [path for pattern in SOUNDS for path in folder.glob(pattern)]
+
+# Фамилию пишут по-разному: Rachmaninoff и Rachmaninov, Balakirev и Balakirew.
+# Требовать побуквенного совпадения — значит не найти половину записей
+SAME_NAME = 0.85
+
+def same_surname(surname: str, name: set) -> bool:
+    return any(
+        difflib.SequenceMatcher(None, surname, word).ratio() >= SAME_NAME
+        for word in name
+    )
 
 def find_audio(card_id: str, files: list[tuple[set, Path]]) -> Path | None:
-    """Файл, из которого резать. Имена файлов и идентификаторы карточек писал
-    один человек, поэтому общие слова в них — достаточно надёжный признак."""
-    best, score = None, 0
-    for name, path in files:
-        common = len(words(card_id) & name)
-        if common > score:
-            best, score = path, common
+    """Файл, из которого резать.
 
-    return best if score >= MATCH else None
+    Имена файлов и идентификаторы карточек писал один человек, поэтому общие
+    слова — достаточно надёжный признак. Но не сами по себе: у «пятой симфонии»
+    и «девятой» общего два слова из двух, и без сверки чисел одна молча
+    подменяет другую. Число из идентификатора обязано найтись в имени файла.
+    """
+    wanted = words(card_id)
+    numbers = {word for word in wanted if word.isdigit()}
+    # первое слово идентификатора — почти всегда фамилия композитора, и оно
+    # обязано найтись в имени файла. Без этого «violin» и «concerto» набирают
+    # проходной балл сами по себе, и скрипичный концерт Бетховена молча
+    # становится вивальдиевским
+    surname = card_id.split("-")[0]
+
+    scored = []
+    for name, path in files:
+        if not same_surname(surname, name) or numbers - name:
+            continue
+        # цифры отсеивают, но не опознают: «No. 2» в опусе прелюдии — та же
+        # двойка, что и во втором концерте, и засчитывать её как слово нельзя
+        common = (wanted & name) - numbers
+        # фамилия совпала неточно и в пересечение не попала, но она-то и есть
+        # главное свидетельство
+        weight = len(common) + (surname not in common)
+        if weight >= MATCH:
+            scored.append((weight, path))
+
+    if not scored:
+        return None
+
+    best = max(weight for weight, _ in scored)
+    winners = [path for weight, path in scored if weight == best]
+
+    # Ничья значит, что различающего слова в идентификаторе нет: две прелюдии
+    # одного композитора неразличимы, если тональность потерялась при разборе.
+    # Угадывать тут нельзя — пусть человек назовёт файл сам
+    return winners[0] if len(winners) == 1 else None
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Библиотека для разработки")
@@ -104,7 +186,7 @@ async def build(args: argparse.Namespace) -> int:
         if not folder.is_dir():
             print(f"Нет такой папки: {folder}")
             return 1
-        files += [(words(path.stem), path) for path in folder.glob("*.mp3")]
+        files += [(words(path.stem), path) for path in sound_files(folder)]
 
     print(f"Исходников: {len(files)}")
 
