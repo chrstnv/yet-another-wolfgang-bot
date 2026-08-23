@@ -9,12 +9,14 @@ from telegram.error import BadRequest, TimedOut
 from bot import handlers
 from bot.handlers import (
     acknowledge, answered_keyboard, expire, favourite_title, favourites_view,
-    fragment_number, one_at_a_time, progress_view, telegram_call, PAGE,
+    fragment_keyboard, fragment_number, one_at_a_time, progress_view,
+    telegram_call, PAGE,
 )
 from bot.keyboards import MENU_KEYBOARD, MENU_VERSION
 from core import storage
 from core.texts import (
-    CLOSE_BUTTON, FAVOURITE_ADD, FAVOURITE_REMOVE, FAVOURITES_BACK,
+    CLOSE_BUTTON, FAVOURITE_ADD, FAVOURITE_DROP, FAVOURITE_REMOVE,
+    FAVOURITE_RETURN, FAVOURITES_BACK,
     FAVOURITES_MORE, NEXT_BUTTON, QUIZ_EXPIRED, RESET_BUTTON,
 )
 
@@ -349,13 +351,30 @@ def test_an_empty_collection_says_so():
     assert "Пока пусто" in text
     assert labels_of(markup) == [CLOSE_BUTTON]
 
-def test_a_marked_fragment_shows_up_with_a_way_to_drop_it():
+def test_a_marked_fragment_shows_up_in_the_list():
     context = context_of([MORNING], marked=[("grieg-morning", "Утро")])
 
     _, markup = favourites_view(context, 1)
 
     assert "Григ — «Пер Гюнт», «Утро»" in labels_of(markup)
-    assert "💔" in labels_of(markup)
+
+def test_the_list_itself_offers_no_parting():
+    """Расстаются с отмеченным, переслушав, — под самим фрагментом."""
+    context = context_of([MORNING], marked=[("grieg-morning", "Утро")])
+
+    _, markup = favourites_view(context, 1)
+
+    assert FAVOURITE_DROP not in labels_of(markup)
+
+def test_a_replayed_fragment_can_be_parted_with_and_put_away():
+    markup = fragment_keyboard("grieg-morning", 0, favourite=True)
+
+    assert labels_of(markup) == [FAVOURITE_DROP, CLOSE_BUTTON]
+
+def test_what_was_parted_with_can_be_taken_back():
+    markup = fragment_keyboard("grieg-morning", 0, favourite=False)
+
+    assert labels_of(markup) == [FAVOURITE_RETURN, CLOSE_BUTTON]
 
 def test_what_is_gone_from_the_library_is_not_shown():
     """Кнопка, которая ничего не сыграет, хуже отсутствующей."""
@@ -408,6 +427,42 @@ def test_a_card_without_a_fragment_is_not_offered_to_keep():
 
     assert FAVOURITE_ADD not in labels_of(markup)
 
+class Editor:
+    """Бот, который запоминает, что и где правил."""
+
+    def __init__(self):
+        self.edits = []
+
+    async def edit_message_text(self, text, chat_id=None, message_id=None,
+                                reply_markup=None, parse_mode=None):
+        self.edits.append((message_id, text))
+
+def redraw(context, chat=1, user=1):
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=user), effective_chat=SimpleNamespace(id=chat)
+    )
+
+    return run(handlers.redraw_favourites(update, context))
+
+def test_the_open_list_follows_what_happened_under_the_music():
+    bot = Editor()
+    context = context_of([MORNING], marked=[("grieg-morning", "Утро")])
+    context.bot = bot
+    context.user_data = {"favourites": {"message_id": 77, "offset": 0}}
+
+    redraw(context)
+
+    assert [message_id for message_id, _ in bot.edits] == [77]
+
+def test_a_list_nobody_opened_is_not_redrawn():
+    bot = Editor()
+    context = context_of([MORNING])
+    context.bot = bot
+    context.user_data = {}
+
+    redraw(context)
+
+    assert bot.edits == []
 class Chat:
     """Чат, который запоминает присланное вместе с клавиатурой."""
 
