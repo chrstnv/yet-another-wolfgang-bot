@@ -222,6 +222,27 @@ async def dismiss_tap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await acknowledge(query)
         await telegram_call(lambda: query.edit_message_reply_markup(reply_markup=None))
 
+async def send_fragment(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, fragment: dict, **extra
+):
+    """Единственная дверь, через которую бот присылает музыку.
+
+    Отправленное здесь же и запоминается. Аудио в чате складывается в плейлист,
+    и любой забытый кусок возвращает то самое перескакивание плеера, от которого
+    заведён clear_audio. Держать это на внимательности нельзя: мест, откуда
+    шлют фрагменты, со временем становится больше — пусть дверь будет одна.
+    """
+    message = await telegram_call(lambda: context.bot.send_audio(
+        chat_id=update.effective_chat.id,
+        audio=fragment["audio_file_id"],
+        **extra,
+    ))
+    storage.save_sent_audio(
+        context.bot_data["db"], update.effective_user.id, message.message_id
+    )
+
+    return message
+
 async def clear_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Убирает из чата все аудиосообщения, что бот успел прислать.
 
@@ -401,19 +422,15 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         else options_keyboard(session["options"], library["by_id"])
     )
 
-    message = await telegram_call(lambda: context.bot.send_audio(
-        chat_id=update.effective_chat.id,
-        audio=fragment["audio_file_id"],
+    message = await send_fragment(
+        update, context, fragment,
         caption=progress.question_caption(session),
-        parse_mode="HTML",
-        reply_markup=keyboard,
         title="🎵 Фрагмент",
         performer=quiz.recording_of(card, fragment)["performer"],
-    ))
-    session["message_id"] = message.message_id
-    storage.save_sent_audio(
-        context.bot_data["db"], update.effective_user.id, message.message_id
+        reply_markup=keyboard,
+        parse_mode="HTML",
     )
+    session["message_id"] = message.message_id
 
 async def expire(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Гасит кнопки под вопросом, от которого не осталось сессии.
@@ -805,15 +822,11 @@ async def play_favourite(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     fragment = card["fragments"][int(number)]
     recording = quiz.recording_of(card, fragment)
 
-    message = await telegram_call(lambda: context.bot.send_audio(
-        chat_id=update.effective_chat.id,
-        audio=fragment["audio_file_id"],
+    await send_fragment(
+        update, context, fragment,
         caption=favourite_title(card, name),
         title=name,
         performer=recording["performer"],
-    ))
-    storage.save_sent_audio(
-        context.bot_data["db"], update.effective_user.id, message.message_id
     )
     await acknowledge(query)
 
