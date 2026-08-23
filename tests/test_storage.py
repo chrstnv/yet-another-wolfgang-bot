@@ -142,3 +142,49 @@ def test_forget_progress_keeps_the_settings(conn):
     storage.forget_progress(conn, 1)
 
     assert storage.hide_options(conn, 1) is True
+
+def test_a_favourite_is_remembered(conn):
+    storage.add_favourite(conn, 1, "grieg-morning", "Утро")
+
+    assert storage.is_favourite(conn, 1, "grieg-morning", "Утро")
+    assert storage.favourites(conn, 1) == [{"card_id": "grieg-morning", "fragment": "Утро"}]
+
+def test_marking_twice_changes_nothing(conn):
+    """Кнопка-переключатель может прийти дважды — сеть и нетерпеливые пальцы."""
+    storage.add_favourite(conn, 1, "grieg-morning", "Утро")
+    storage.add_favourite(conn, 1, "grieg-morning", "Утро")
+
+    assert len(storage.favourites(conn, 1)) == 1
+
+def test_fragments_of_one_card_are_counted_apart(conn):
+    storage.add_favourite(conn, 1, "saint-saens-carnival", "Лебедь")
+    storage.add_favourite(conn, 1, "saint-saens-carnival", "Аквариум")
+
+    assert len(storage.favourites(conn, 1)) == 2
+
+def test_a_favourite_can_be_taken_back(conn):
+    storage.add_favourite(conn, 1, "grieg-morning", "Утро")
+    storage.remove_favourite(conn, 1, "grieg-morning", "Утро")
+
+    assert storage.favourites(conn, 1) == []
+    assert not storage.is_favourite(conn, 1, "grieg-morning", "Утро")
+
+def test_favourites_are_kept_per_user(conn):
+    storage.add_favourite(conn, 1, "grieg-morning", "Утро")
+
+    assert storage.favourites(conn, 2) == []
+
+def test_the_newest_favourite_comes_first(conn):
+    for card_id in ("первая", "вторая", "третья"):
+        storage.add_favourite(conn, 1, card_id, "Ф")
+
+    assert [row["card_id"] for row in storage.favourites(conn, 1)] == ["третья", "вторая", "первая"]
+
+def test_resetting_progress_keeps_the_collection(conn):
+    """Избранное — не достижение, а коллекция: стирать её не просили."""
+    storage.add_favourite(conn, 1, "grieg-morning", "Утро")
+    storage.save_answer(conn, 1, "grieg-morning", "grieg-morning")
+
+    storage.forget_progress(conn, 1)
+
+    assert len(storage.favourites(conn, 1)) == 1

@@ -19,6 +19,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
     init_streaks(conn)
     init_sent_audio(conn)
     init_settings(conn)
+    init_favourites(conn)
 
 def init_settings(conn: sqlite3.Connection) -> None:
     """Настройки — единственное в базе, что хранит состояние, а не события.
@@ -48,6 +49,53 @@ def set_hide_options(conn: sqlite3.Connection, user_id: int, hidden: bool) -> No
         ON CONFLICT(user_id) DO UPDATE SET hide_options = excluded.hide_options
     """, (user_id, int(hidden)))
     conn.commit()
+
+def init_favourites(conn: sqlite3.Connection) -> None:
+    """Отмеченное человеком: не достижение, а коллекция.
+
+    Фрагмент запоминается по имени, а не по номеру: номера сдвигаются, стоит
+    переставить фрагменты в карточке, и любимая вещь молча стала бы другой.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS favourites (
+            user_id  INTEGER NOT NULL,
+            card_id  TEXT    NOT NULL,
+            fragment TEXT    NOT NULL,
+            added_at TEXT    NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (user_id, card_id, fragment)
+        )
+    """)
+
+def add_favourite(conn: sqlite3.Connection, user_id: int, card_id: str, fragment: str) -> None:
+    # повторное нажатие не должно ломаться об уже отмеченное
+    conn.execute("""
+        INSERT OR IGNORE INTO favourites (user_id, card_id, fragment) VALUES (?, ?, ?)
+    """, (user_id, card_id, fragment))
+    conn.commit()
+
+def remove_favourite(conn: sqlite3.Connection, user_id: int, card_id: str, fragment: str) -> None:
+    conn.execute(
+        "DELETE FROM favourites WHERE user_id = ? AND card_id = ? AND fragment = ?",
+        (user_id, card_id, fragment),
+    )
+    conn.commit()
+
+def is_favourite(conn: sqlite3.Connection, user_id: int, card_id: str, fragment: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM favourites WHERE user_id = ? AND card_id = ? AND fragment = ?",
+        (user_id, card_id, fragment),
+    ).fetchone()
+
+    return row is not None
+
+def favourites(conn: sqlite3.Connection, user_id: int) -> list[dict]:
+    """Отмеченное, новое сверху: последнее понравившееся ищут чаще старого."""
+    rows = conn.execute("""
+        SELECT card_id, fragment FROM favourites WHERE user_id = ?
+        ORDER BY added_at DESC, rowid DESC
+    """, (user_id,)).fetchall()
+
+    return [dict(row) for row in rows]
 
 def init_sent_audio(conn: sqlite3.Connection) -> None:
     conn.execute("""
@@ -125,8 +173,8 @@ def save_answer(conn: sqlite3.Connection, user_id: int, card_id: str, chosen: st
 def forget_progress(conn: sqlite3.Connection, user_id: int) -> None:
     """Стирает всё, что бот помнит о человеке: ответы и серии.
 
-    Настройки остаются: спрятанные варианты — это не достижение, а привычка,
-    и терять её вместе с прогрессом человек не просил.
+    Настройки и избранное остаются: спрятанные варианты — привычка, а
+    коллекция — не достижение. Ни то, ни другое стирать не просили.
     """
     conn.execute("DELETE FROM answers WHERE user_id = ?", (user_id,))
     conn.execute("DELETE FROM streak_runs WHERE user_id = ?", (user_id,))

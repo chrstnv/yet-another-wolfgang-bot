@@ -8,10 +8,14 @@ from telegram.error import BadRequest, TimedOut
 
 from bot import handlers
 from bot.handlers import (
-    acknowledge, answered_keyboard, expire, one_at_a_time, progress_view, telegram_call,
+    acknowledge, answered_keyboard, expire, favourite_title, favourites_view,
+    fragment_number, one_at_a_time, progress_view, telegram_call, PAGE,
 )
 from core import storage
-from core.texts import CLOSE_BUTTON, NEXT_BUTTON, QUIZ_EXPIRED, RESET_BUTTON
+from core.texts import (
+    CLOSE_BUTTON, FAVOURITE_ADD, FAVOURITE_REMOVE, FAVOURITES_BACK,
+    FAVOURITES_MORE, NEXT_BUTTON, QUIZ_EXPIRED, RESET_BUTTON,
+)
 
 def run(coroutine):
     return asyncio.run(coroutine)
@@ -302,3 +306,103 @@ def test_nobody_is_bothered_when_there_is_no_admin(monkeypatch):
     complain(bot)
 
     assert bot.sent == []
+
+def card(card_id: str, title: str, *fragments: str) -> dict:
+    return {
+        "id": card_id,
+        "title": title,
+        "fragments": [{"name": name, "audio_file_id": "звук"} for name in fragments],
+        "recording": {"performer": "Кто-то", "source": "Откуда-то"},
+    }
+
+MORNING = card("grieg-morning", "Григ — «Пер Гюнт», «Утро»", "Утро")
+CARNIVAL = card("saint-saens-carnival", "Сен-Санс — «Карнавал животных»", "Лебедь", "Аквариум")
+
+def library_with(*cards) -> dict:
+    return {"by_id": {item["id"]: item for item in cards}}
+
+def context_of(cards, marked=()):
+    db = storage.connect(":memory:")
+    storage.init_schema(db)
+    for card_id, fragment in marked:
+        storage.add_favourite(db, 1, card_id, fragment)
+
+    return SimpleNamespace(bot_data={"db": db, "library": library_with(*cards)})
+
+def test_fragment_is_found_by_its_name():
+    assert fragment_number(CARNIVAL, "Аквариум") == 1
+
+def test_a_fragment_that_is_gone_has_no_number():
+    """Библиотека живёт своей жизнью: фрагмент могли переименовать."""
+    assert fragment_number(CARNIVAL, "Слон") == -1
+
+def test_a_single_fragment_needs_no_naming_of_its_own():
+    assert favourite_title(MORNING, "Утро") == "Григ — «Пер Гюнт», «Утро»"
+
+def test_a_many_part_work_says_what_exactly_played():
+    assert favourite_title(CARNIVAL, "Лебедь") == "Сен-Санс — «Карнавал животных», Лебедь"
+
+def test_an_empty_collection_says_so():
+    text, markup = favourites_view(context_of([MORNING]), 1)
+
+    assert "Пока пусто" in text
+    assert labels_of(markup) == [CLOSE_BUTTON]
+
+def test_a_marked_fragment_shows_up_with_a_way_to_drop_it():
+    context = context_of([MORNING], marked=[("grieg-morning", "Утро")])
+
+    _, markup = favourites_view(context, 1)
+
+    assert "Григ — «Пер Гюнт», «Утро»" in labels_of(markup)
+    assert "💔" in labels_of(markup)
+
+def test_what_is_gone_from_the_library_is_not_shown():
+    """Кнопка, которая ничего не сыграет, хуже отсутствующей."""
+    context = context_of([MORNING], marked=[("забытая-карточка", "Что-то")])
+
+    text, markup = favourites_view(context, 1)
+
+    assert "Пока пусто" in text
+
+def test_a_long_collection_offers_the_next_page():
+    many = [card(f"карточка-{number}", f"Название {number}", "Ф") for number in range(PAGE + 2)]
+    context = context_of(many, marked=[(item["id"], "Ф") for item in many])
+
+    _, markup = favourites_view(context, 1)
+
+    assert FAVOURITES_MORE in labels_of(markup)
+    assert FAVOURITES_BACK not in labels_of(markup)
+
+def test_the_second_page_offers_the_way_back():
+    many = [card(f"карточка-{number}", f"Название {number}", "Ф") for number in range(PAGE + 2)]
+    context = context_of(many, marked=[(item["id"], "Ф") for item in many])
+
+    _, markup = favourites_view(context, 1, offset=PAGE)
+
+    assert FAVOURITES_BACK in labels_of(markup)
+    assert FAVOURITES_MORE not in labels_of(markup)
+
+def test_an_offset_past_the_end_lands_on_the_last_page():
+    """Список мог укоротиться, пока страница висела на экране."""
+    context = context_of([MORNING], marked=[("grieg-morning", "Утро")])
+
+    _, markup = favourites_view(context, 1, offset=500)
+
+    assert "Григ — «Пер Гюнт», «Утро»" in labels_of(markup)
+
+def test_the_answer_offers_to_keep_what_played():
+    markup = answered_keyboard(["bizet"], option_cards(), "bizet", "bizet", fragment=0)
+
+    assert FAVOURITE_ADD in labels_of(markup)
+
+def test_what_is_kept_can_be_given_back():
+    markup = answered_keyboard(
+        ["bizet"], option_cards(), "bizet", "bizet", fragment=0, favourite=True
+    )
+
+    assert FAVOURITE_REMOVE in labels_of(markup)
+
+def test_a_card_without_a_fragment_is_not_offered_to_keep():
+    markup = answered_keyboard(["bizet"], option_cards(), "bizet", "bizet")
+
+    assert FAVOURITE_ADD not in labels_of(markup)

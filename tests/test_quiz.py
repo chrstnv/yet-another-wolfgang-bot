@@ -306,3 +306,17 @@ def test_reply_deck_praises_mozart_separately():
 def test_reply_deck_scolds_the_same_whoever_wrote_it():
     assert quiz.reply_deck({"composer": "Моцарт"}, correct=False) == "wrong"
     assert quiz.reply_deck({"composer": "Сальери"}, correct=False) == "wrong"
+
+def test_chosen_id_returns_the_answer_to_the_current_question():
+    session = quiz.session_for(["a", "b"])
+    quiz.record_answer(session, "a", "b")
+
+    assert quiz.chosen_id(session) == "b"
+
+def test_chosen_id_follows_the_position(session=None):
+    session = quiz.session_for(["a", "b"])
+    quiz.record_answer(session, "a", "a")
+    quiz.advance(session)
+    quiz.record_answer(session, "b", "a")
+
+    assert quiz.chosen_id(session) == "a"

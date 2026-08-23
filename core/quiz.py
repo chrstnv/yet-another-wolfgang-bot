@@ -101,6 +101,14 @@ def current_card_id(session: dict) -> str:
 def is_answered(session: dict) -> bool:
     return len(session["answers"]) > session["position"]
 
+def chosen_id(session: dict) -> str:
+    """Что выбрано на текущем вопросе. Зовётся после is_answered.
+
+    Нужно, чтобы перерисовать кнопки, не потеряв раскраску: промах должен
+    остаться красным и после того, как человек нажал что-то ещё.
+    """
+    return session["answers"][session["position"]]["chosen"]
+
 def record_answer(session: dict, card_id: str, chosen: int) -> None:
     session["answers"].append({"card_id": card_id, "chosen": chosen})
 

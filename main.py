@@ -15,8 +15,13 @@ from bot.handlers import (
     restart_quiz, show_progress, effect_id, chat_id, review_quiz,
     streak_quiz, reveal_options, settings_screen, toggle_hide_options, close_screen,
     ask_reset, confirm_reset, cancel_reset,
+    show_favourites, favourites_page, toggle_favourite, drop_favourite,
+    play_favourite,
 )
-from bot.keyboards import RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL, STREAK_LABEL
+from bot.keyboards import (
+    RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL,
+    STREAK_LABEL, FAVOURITES_LABEL,
+)
 
 load_dotenv(os.getenv("ENV_FILE", ".env"))
 
@@ -121,6 +126,8 @@ def main() -> None:
 
     app.add_handler(MessageHandler(filters.Text([SETTINGS_LABEL]), settings_screen))
 
+    app.add_handler(MessageHandler(filters.Text([FAVOURITES_LABEL]), show_favourites))
+
     app.add_handler(MessageHandler(filters.Text([STREAK_LABEL]), streak_quiz))
 
     app.add_handler(MessageHandler(filters.Text([REVIEW_LABEL]), review_quiz))
@@ -146,6 +153,14 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(confirm_reset, pattern=r"^reset-yes$"))
 
     app.add_handler(CallbackQueryHandler(cancel_reset, pattern=r"^reset-no$"))
+
+    app.add_handler(CallbackQueryHandler(toggle_favourite, pattern=r"^fav:"))
+
+    app.add_handler(CallbackQueryHandler(favourites_page, pattern=r"^favs:"))
+
+    app.add_handler(CallbackQueryHandler(play_favourite, pattern=r"^favplay:"))
+
+    app.add_handler(CallbackQueryHandler(drop_favourite, pattern=r"^favdrop:"))
 
     app.add_handler(CallbackQueryHandler(close_screen, pattern=r"^close$"))
 
