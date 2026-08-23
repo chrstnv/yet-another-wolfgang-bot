@@ -34,6 +34,39 @@ def init_settings(conn: sqlite3.Connection) -> None:
             hide_options INTEGER NOT NULL DEFAULT 0
         )
     """)
+    add_setting(conn, "roulette")
+
+def add_setting(conn: sqlite3.Connection, name: str) -> None:
+    """Добавляет тумблер в уже существующую таблицу.
+
+    CREATE TABLE IF NOT EXISTS новых колонок не заводит, а база у людей уже
+    заполнена: без этого новый переключатель работал бы только у тех, кто
+    пришёл после него.
+    """
+    known = {row["name"] for row in conn.execute("PRAGMA table_info(settings)")}
+    if name not in known:
+        conn.execute(f"ALTER TABLE settings ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
+
+def switch(conn: sqlite3.Connection, name: str, user_id: int) -> bool:
+    row = conn.execute(
+        f"SELECT {name} FROM settings WHERE user_id = ?", (user_id,)
+    ).fetchone()
+
+    return bool(row[name]) if row else False
+
+def set_switch(conn: sqlite3.Connection, name: str, user_id: int, on: bool) -> None:
+    conn.execute(f"""
+        INSERT INTO settings (user_id, {name}) VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET {name} = excluded.{name}
+    """, (user_id, int(on)))
+    conn.commit()
+
+def roulette(conn: sqlite3.Connection, user_id: int) -> bool:
+    """Играть ли со случайных мест записи вместо отобранных фрагментов."""
+    return switch(conn, "roulette", user_id)
+
+def set_roulette(conn: sqlite3.Connection, user_id: int, on: bool) -> None:
+    set_switch(conn, "roulette", user_id, on)
 
 def hide_options(conn: sqlite3.Connection, user_id: int) -> bool:
     row = conn.execute(

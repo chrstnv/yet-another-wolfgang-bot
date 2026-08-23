@@ -17,7 +17,7 @@ from bot.handlers import (
     streak_quiz, reveal_options, settings_screen, toggle_hide_options, close_screen,
     ask_reset, confirm_reset, cancel_reset,
     show_favourites, favourites_page, toggle_favourite,
-    play_favourite, mark_fragment, refresh_menu,
+    play_favourite, mark_fragment, refresh_menu, toggle_roulette,
 )
 from bot.keyboards import (
     RANDOM_QUIZ_LABEL, PROGRESS_LABEL, REVIEW_LABEL, SETTINGS_LABEL,
@@ -148,6 +148,8 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(reveal_options, pattern=r"^reveal$"))
 
     app.add_handler(CallbackQueryHandler(toggle_hide_options, pattern=r"^toggle-hide$"))
+
+    app.add_handler(CallbackQueryHandler(toggle_roulette, pattern=r"^toggle-roulette$"))
 
     app.add_handler(CallbackQueryHandler(ask_reset, pattern=r"^reset$"))
 

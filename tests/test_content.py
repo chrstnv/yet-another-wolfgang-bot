@@ -313,3 +313,40 @@ def test_flaws_leave_a_description_that_says_something_new():
     )
 
     assert not found["описание повторяет название"]
+
+def test_a_random_piece_needs_its_sound():
+    cards = [{
+        "id": "grieg-morning", "title": "Григ", "facts": ["Факт."],
+        "fragments": [{"name": "Утро", "audio_file_id": "звук"}],
+        "recording": {"performer": "Кто-то", "source": "Откуда-то"},
+        "roulette": [{"start": "184.0", "duration": "25"}],
+    }]
+
+    assert any("случайного куска 1 нет audio_file_id" in problem
+               for problem in content.find_problems(cards))
+
+def test_a_random_piece_needs_its_mark():
+    """По засечке ответ называет минуту — без неё сказать нечего."""
+    cards = [{
+        "id": "grieg-morning", "title": "Григ", "facts": ["Факт."],
+        "fragments": [{"name": "Утро", "audio_file_id": "звук"}],
+        "recording": {"performer": "Кто-то", "source": "Откуда-то"},
+        "roulette": [{"duration": "25", "audio_file_id": "звук"}],
+    }]
+
+    assert any("случайного куска 1 нет start" in problem
+               for problem in content.find_problems(cards))
+
+def test_cards_with_pieces_are_gathered_apart(tmp_path):
+    """Режим «наугад» играет только тем, кому нарезали куски."""
+    cards_dir = write_library(tmp_path, {
+        "с-кусками": playable(roulette=[
+            {"start": "10", "duration": "25", "audio_file_id": "x" * 50}
+        ]),
+        "без-кусков": playable(),
+    })
+
+    library = content.load_library(cards_dir)
+
+    assert [card["id"] for card in library["roulette"]] == ["с-кусками"]
+    assert len(library["playable"]) == 2

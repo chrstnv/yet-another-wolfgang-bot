@@ -466,3 +466,13 @@ def test_visible_fragment_keeps_a_name_that_tells_two_parts_apart():
     naming = card["title"]
 
     assert visible_fragment(card, "Интродукция", naming) == "Интродукция"
+
+def test_the_first_minute_is_called_the_first():
+    """Люди считают минуты с первой: сорок секунд — это первая минута."""
+    assert progress.moment("40") == "1-я минута"
+
+def test_a_place_deep_in_the_recording_is_named_by_its_minute():
+    assert progress.moment("184.0") == "4-я минута"
+
+def test_the_minute_boundary_belongs_to_the_next_one():
+    assert progress.moment("120.0") == "3-я минута"

@@ -84,14 +84,15 @@ def next_line(session: dict, name: str, variants: list[str]) -> str:
 
 MOZART = "Моцарт"
 
-def reply_deck(card: dict, correct: bool) -> str:
+def reply_deck(card: dict, correct: bool, naugad: bool = False) -> str:
     """Какой колодой отвечать на этот ответ.
 
     Вольфганг говорит о себе в третьем лице, и на своей же музыке ему положено
     хвалить не столько игрока, сколько выбор композитора.
     """
     if not correct:
-        return "wrong"
+        # с незнакомого места ошибаться не стыдно, и попрекать не за что
+        return "wrong-roulette" if naugad else "wrong"
 
     return "correct-mozart" if card.get("composer") == MOZART else "correct"
 
@@ -135,6 +136,10 @@ RANDOM_SLOTS = 1
 
 def pick_fragment(card: dict) -> dict:
     return random.choice(card["fragments"])
+
+def pick_piece(card: dict) -> dict:
+    """Кусок с незнакомого места — для режима «наугад»."""
+    return random.choice(card["roulette"])
 
 def recording_of(card: dict, fragment: dict) -> dict:
     return fragment.get("recording") or card["recording"]

@@ -2,7 +2,7 @@ import html
 
 from core import quiz
 from core.texts import (
-    ANSWER_CORRECT, ANSWER_FACT, ANSWER_FRAGMENT,
+    ANSWER_CORRECT, ANSWER_FACT, ANSWER_FRAGMENT, ANSWER_MOMENT,
     ANSWER_CHOSEN, ANSWER_NAMING, ANSWER_NAMING_MOZART, ANSWER_NAMING_MOZART_WRONG,
     ANSWER_NAMING_WRONG,
     ANSWER_RECORDING, ANSWER_RECORDING_LICENSED, ANSWER_STREAK, ANSWER_WRONG,
@@ -62,6 +62,15 @@ def visible_fragment(card: dict, fragment: str, naming: str) -> str:
         return "" if bare(fragment) in bare(naming) else fragment
 
     return "" if bare(card["title"]).endswith(bare(fragment)) else fragment
+
+def moment(start: str) -> str:
+    """Место в записи, названное минутой.
+
+    У куска для режима «наугад» нет имени — назвать его значило бы выдать
+    ответ, — поэтому в подписи он представляется временем. Минуты считаются
+    от первой, как их называют люди: сорок секунд это первая минута.
+    """
+    return ANSWER_MOMENT.format(minute=int(float(start)) // 60 + 1)
 
 def question_caption(session: dict) -> str:
     """Подпись к вопросу: сама формулировка и место в квизе.
