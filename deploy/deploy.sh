@@ -39,6 +39,25 @@ echo "$token" | docker login --username iam --password-stdin cr.yandex
 
 echo "Выкладываю $BOT_IMAGE"
 docker compose pull
+
+# compose.yaml лежит на машине отдельной копией: он принадлежит root, и
+# выкладке его переписывать нельзя — иначе коммитом в репозиторий можно было бы
+# смонтировать в контейнер что угодно. Но разойтись эти две копии могут молча,
+# и заметить это потом почти невозможно: правка драйвера логов однажды не
+# доехала, а искали её полчаса посреди расследования. Поэтому сверяем и говорим
+if docker run --rm --entrypoint cat "$BOT_IMAGE" /app/compose.yaml > /tmp/compose.image 2>/dev/null; then
+    if ! cmp -s /tmp/compose.image compose.yaml; then
+        echo
+        echo "ВНИМАНИЕ: compose.yaml на машине разошёлся с репозиторием"
+        diff -u compose.yaml /tmp/compose.image || true
+        echo "Выкладка идёт со старым файлом — новый нужно положить руками"
+        echo
+    fi
+    rm -f /tmp/compose.image
+else
+    echo "В образе нет compose.yaml — сверить описание запуска не с чем"
+fi
+
 docker compose up -d --remove-orphans
 
 # Старые образы копятся по одному на выкладку и съедают диск за месяц.

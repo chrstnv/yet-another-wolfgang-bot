@@ -26,6 +26,11 @@ COPY core/ core/
 # Каталог собирается перед сборкой — `make image` или checkout в CI
 COPY content/ content/
 
+# Описание запуска кладётся в образ только для сверки: выкладка сравнивает его
+# с тем, что лежит на машине, и сообщает о расхождении. Применять его оттуда
+# нельзя — переписывать compose.yaml выкладке намеренно не позволено
+COPY compose.yaml ./
+
 # Боту не нужен root: он не слушает портов и пишет только в /data
 RUN useradd --system --create-home --uid 1000 wolfgang
 USER wolfgang

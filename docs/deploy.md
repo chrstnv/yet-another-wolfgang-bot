@@ -72,6 +72,16 @@ sudo chown -R 1000:1000 /opt/wolfgang/data
 `deploy/watchdog.sh` и `deploy/backup.sh`, все три — `chmod 755`, владелец `root`,
 чтобы пользователь `wolfgang` не мог их переписать.
 
+**Выкладка `compose.yaml` не обновляет** — она везёт только образ. Это намеренно:
+файл описывает, с какими правами и что монтируя запускается контейнер, и право
+его переписывать означало бы, что коммитом в репозиторий можно смонтировать
+в контейнер корень хоста. Меняли `compose.yaml` — положите новый руками
+и выполните `docker compose up -d`.
+
+Чтобы копии не расходились молча, выкладка их сверяет: `compose.yaml` едет
+внутри образа, и при несовпадении в лог выкладки печатается предупреждение
+с `diff`. Сборка при этом не падает — старый файл продолжает работать.
+
 `/opt/wolfgang/image.env` — обычный файл, владелец `wolfgang` (выкладка правит в
 нём тег бота):
 
@@ -294,6 +304,7 @@ sudo chmod 600 /opt/wolfgang/proxy.json
 
 ```bash
 docker compose ps                    # состояние и здоровье
+docker run --rm --entrypoint cat "$BOT_IMAGE" /app/compose.yaml | diff -u compose.yaml -  # разошлось ли описание запуска
 docker compose logs -f --tail 100    # логи бота
 ls -l /opt/wolfgang/data/heartbeat   # когда бот последний раз отмечался
 systemctl list-timers 'wolfgang-*'   # сторож и бэкапы
