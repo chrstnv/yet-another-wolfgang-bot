@@ -518,7 +518,9 @@ async def settings_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     text, keyboard = settings_view(*current_settings(context, update.effective_user.id))
 
-    await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await telegram_call(lambda: update.message.reply_text(
+        text, reply_markup=keyboard, parse_mode="HTML"
+    ))
 
 async def redraw_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text, keyboard = settings_view(*current_settings(context, update.effective_user.id))
@@ -863,7 +865,9 @@ async def show_favourites(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await remove_message(update, context, update.message.message_id)
 
     text, keyboard = favourites_view(context, update.effective_user.id)
-    message = await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+    message = await telegram_call(lambda: update.message.reply_text(
+        text, reply_markup=keyboard, parse_mode="HTML"
+    ))
 
     # запоминаем, где висит список: его придётся править, когда вещь уберут
     # из-под присланного фрагмента
@@ -949,7 +953,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # без этой строчки «бот не ответил» и «бот не получил» неразличимы
     LOGGER.info("Приветствие для %s", update.effective_user.id if update.effective_user else "?")
 
-    await message.reply_text(GREETING, reply_markup=MENU_KEYBOARD, parse_mode="HTML")
+    # Отправка идёт с повторами, как всё остальное в боте. Приветствие было
+    # единственным экраном без них: одна неудачная попытка сквозь прокси —
+    # и человек не получал ничего, пока квиз в тех же условиях доезжал
+    await telegram_call(lambda: message.reply_text(
+        GREETING, reply_markup=MENU_KEYBOARD, parse_mode="HTML"
+    ))
 
 async def refresh_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Присылает меню тем, кто видит устаревшее.
@@ -1033,7 +1042,9 @@ async def show_progress(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     text, keyboard = progress_view(context, update.effective_user.id)
 
-    await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await telegram_call(lambda: update.message.reply_text(
+        text, reply_markup=keyboard, parse_mode="HTML"
+    ))
 
 @one_at_a_time
 async def ask_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
