@@ -476,12 +476,17 @@ def update_from(chat):
     return SimpleNamespace(effective_chat=chat)
 
 class Message:
-    """Сообщение, которое запоминает ответ вместе с клавиатурой."""
+    """Сообщение, которое запоминает ответ и умеет падать заданное число раз."""
 
     def __init__(self):
         self.replies = []
+        self.attempts = 0
+        self.fail_times = 0
 
     async def reply_text(self, text, reply_markup=None, parse_mode=None):
+        self.attempts += 1
+        if self.attempts <= self.fail_times:
+            raise TimedOut()
         self.replies.append((text, reply_markup))
 
 def test_the_greeting_answers_a_command():
@@ -495,6 +500,19 @@ def test_the_greeting_answers_a_command():
     assert len(message.replies) == 1
     assert message.replies[0][1] is MENU_KEYBOARD
     assert data["menu"] == MENU_VERSION
+
+def test_the_greeting_survives_a_network_hiccup():
+    """Единственный экран без повторов — и единственный, который «тупил»."""
+    message = Message()
+    message.fail_times = 2
+    update = SimpleNamespace(
+        effective_message=message, effective_user=SimpleNamespace(id=7)
+    )
+
+    run(handlers.start(update, SimpleNamespace(user_data={})))
+
+    assert len(message.replies) == 1
+    assert message.attempts == 3
 
 def test_the_greeting_survives_an_update_without_a_message():
     """Команду можно получить правкой старого сообщения — message там пустой."""
