@@ -1,9 +1,8 @@
 """Режет из записи случайные куски — для режима «наугад».
 
-    python -m tools.roulette --card grieg-morning --count 3 \\
-        --audio ~/Desktop/YAWolfgang --audio "~/Desktop/YAWolfgang v2"
+    python -m tools.roulette --card grieg-morning --count 3
 
-    python -m tools.roulette --all --count 3 --audio ~/Desktop/YAWolfgang
+    python -m tools.roulette --all --count 3
 
 Обычный фрагмент отбирается руками: это тема, по которой вещь узнают. Здесь
 наоборот — место должно быть незнакомым, поэтому засечка случайная, а имени у
@@ -12,7 +11,7 @@
 Куски дописываются в карточку полем `roulette` рядом с `fragments`. Идентификаторы
 привязаны к боту, поэтому для тестового бота режьте своим токеном:
 
-    ENV_FILE=.env.dev python -m tools.roulette --all --count 3 --audio ...
+    ENV_FILE=.env.dev python -m tools.roulette --all --count 3
 
 Случайное окно легко попадает в паузу между частями, в аплодисменты или в
 затихание. Поэтому кандидат проверяется на слух машины: измеряется громкость и
@@ -38,6 +37,7 @@ from core import content
 from tools.add_card import (
     MAX_GAIN, TARGET_PEAK, attribution, cut_fragment, leading_silence, upload,
 )
+from tools.audio_folders import audio_folders
 from tools.dev_library import find_audio, sound_files, words
 
 # Сколько записи не трогать с начала и с конца. В начале — вступления, настройка
@@ -173,8 +173,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--card", help="идентификатор карточки")
     parser.add_argument("--all", action="store_true", help="все карточки с записью")
     parser.add_argument("--count", type=int, default=3, help="сколько кусков на карточку")
-    parser.add_argument("--audio", action="append", required=True, type=Path,
-                        help="папка с исходниками, можно повторять")
+    parser.add_argument("--audio", action="append", type=Path,
+                        help="папка с исходниками вместо AUDIO_PATH, можно повторять")
     parser.add_argument("--source", type=Path,
                         help="назвать файл прямо, если по имени он не находится")
     parser.add_argument("--after", type=float, default=0.0, metavar="СЕК",
@@ -376,8 +376,8 @@ async def build(args: argparse.Namespace) -> int:
 
     if args.check:
         files = []
-        for folder in args.audio:
-            files += [(words(path.stem), path) for path in sound_files(folder.expanduser())]
+        for folder in audio_folders(args.audio):
+            files += [(words(path.stem), path) for path in sound_files(folder)]
 
         return survey(library, files)
 
@@ -393,8 +393,7 @@ async def build(args: argparse.Namespace) -> int:
         return 1
 
     files = []
-    for folder in args.audio:
-        folder = folder.expanduser()
+    for folder in audio_folders(args.audio):
         if not folder.is_dir():
             print(f"Нет такой папки: {folder}")
             return 1

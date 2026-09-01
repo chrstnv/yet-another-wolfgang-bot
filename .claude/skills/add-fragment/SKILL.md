@@ -98,7 +98,7 @@ python -m tools.add_card --id verdi-aida --title "Верди — «Аида»"
 python -m tools.add_card \
     --id grieg-mountain-king \
     --title "Григ — «В пещере горного короля»" \
-    --audio "~/Desktop/YAWolfgang/Grieg - Mountain King.mp3" \
+    --audio ~/"Desktop/Пакет с пакетами/YAWolfgang/Grieg - Mountain King.mp3" \
     --start 0 --duration 35 --fragment "В пещере горного короля" \
     --performer "Kevin MacLeod" --source "Musopen" --license "CC BY 3.0" \
     --description "Финал первой сюиты «Пер Гюнт»." \

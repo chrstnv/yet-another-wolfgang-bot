@@ -6,7 +6,7 @@
 
     BOT_TOKEN=токен_тестового python -m tools.dev_library \\
         --into ~/PetProjects/wolfgang-dev-content \\
-        --audio "~/Desktop/YAWolfgang" --audio "~/Desktop/YAWolfgang v2" --count 12
+        --count 12
 
 Токен подменяется в командной строке, а не в .env: карточки-источники берутся
 из боевой библиотеки, и CONTENT_PATH должен остаться боевым. Заливка при этом
@@ -38,6 +38,7 @@ from telegram import Bot
 
 from core import content
 from tools.add_card import cut_fragment, upload
+from tools.audio_folders import audio_folders
 
 # с какой секунды и сколько резать. Для разработки важно только, чтобы звучало
 START = "30"
@@ -147,8 +148,8 @@ def find_audio(card_id: str, files: list[tuple[set, Path]]) -> Path | None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Библиотека для разработки")
     parser.add_argument("--into", required=True, type=Path, help="куда сложить карточки")
-    parser.add_argument("--audio", action="append", required=True, type=Path,
-                        help="папка с исходниками, можно повторять")
+    parser.add_argument("--audio", action="append", type=Path,
+                        help="папка с исходниками вместо AUDIO_PATH, можно повторять")
     parser.add_argument("--count", type=int, default=12, help="сколько карточек с записью")
 
     return parser.parse_args()
@@ -181,8 +182,7 @@ async def build(args: argparse.Namespace) -> int:
     by_id = library["by_id"]
 
     files = []
-    for folder in args.audio:
-        folder = folder.expanduser()
+    for folder in audio_folders(args.audio):
         if not folder.is_dir():
             print(f"Нет такой папки: {folder}")
             return 1

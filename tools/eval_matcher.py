@@ -1,6 +1,6 @@
 """Меряет, как часто сопоставление файла с карточкой право, молчит и ошибается.
 
-    python -m tools.eval_matcher --audio ~/Desktop/YAWolfgang
+    python -m tools.eval_matcher
 
 Разметка берётся из самой библиотеки: у каждого куска «наугад» записано имя
 файла, из которого он вырезан, и все эти куски человек прослушал. Значит, для
@@ -18,6 +18,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from core import content
+from tools.audio_folders import audio_folders
 from tools.dev_library import MATCH, find_audio, same_surname, sound_files, words
 
 def candidates(card_id: str, files: list[tuple[set, Path]]) -> list[Path]:
@@ -61,7 +62,8 @@ def known_source(card: dict) -> str | None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--audio", action="append", required=True, help="папка с исходниками")
+    parser.add_argument("--audio", action="append",
+                        help="папка с исходниками вместо AUDIO_PATH, можно повторять")
 
     return parser.parse_args()
 
@@ -70,8 +72,8 @@ def main() -> int:
     args = parse_args()
 
     files = []
-    for folder in args.audio:
-        files += sound_files(Path(folder).expanduser())
+    for folder in audio_folders(args.audio):
+        files += sound_files(folder)
     named = [(words(path.name), path) for path in files]
 
     library = content.load_library()

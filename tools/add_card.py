@@ -3,7 +3,7 @@
 С записью — обрезает фрагмент, чистит теги, загружает в Telegram и забирает file_id:
 
     python -m tools.add_card --id grieg-mountain-king --title "Григ — «В пещере горного короля»" \\
-        --audio "~/Desktop/YAWolfgang/Grieg - In the Hall Of The Mountain King.mp3" \\
+        --audio ~/"Desktop/Пакет с пакетами/YAWolfgang/Grieg - In the Hall Of The Mountain King.mp3" \\
         --fragment "В пещере горного короля" \\
         --performer "Kevin MacLeod" --source "Musopen" \\
         --fact "Первый факт." --fact "Второй факт." \\
