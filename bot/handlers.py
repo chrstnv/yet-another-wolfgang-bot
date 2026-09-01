@@ -935,13 +935,21 @@ async def play_favourite(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await acknowledge(query)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Команду можно не написать заново, а получить правкой старого сообщения:
+    # CommandHandler фильтрует UpdateType.MESSAGES, а туда входит и edited_message,
+    # у которого update.message пустой
+    message = update.effective_message
+    if message is None:
+        return
+
     # приветствие и так несёт свежую клавиатуру, так что отмечаем её показанной:
     # иначе refresh_menu следом сообщит о перестановке тому, кто меню видит впервые
     context.user_data["menu"] = MENU_VERSION
 
-    await update.message.reply_text(
-        GREETING, reply_markup=MENU_KEYBOARD, parse_mode="HTML"
-    )
+    # без этой строчки «бот не ответил» и «бот не получил» неразличимы
+    LOGGER.info("Приветствие для %s", update.effective_user.id if update.effective_user else "?")
+
+    await message.reply_text(GREETING, reply_markup=MENU_KEYBOARD, parse_mode="HTML")
 
 async def refresh_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Присылает меню тем, кто видит устаревшее.

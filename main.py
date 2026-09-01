@@ -48,16 +48,25 @@ async def heartbeat(app: Application) -> None:
     """
     path = Path(os.environ["HEARTBEAT_PATH"])
 
-    while True:
-        # отметка ставится первой, а проверка идёт после паузы: задача заводится
-        # до старта опроса, и проверка на первом же круге увидела бы его стоящим
-        path.touch()
-        await asyncio.sleep(HEARTBEAT_PERIOD)
+    try:
+        while True:
+            # отметка ставится первой, а проверка идёт после паузы: задача заводится
+            # до старта опроса, и проверка на первом же круге увидела бы его стоящим
+            path.touch()
+            await asyncio.sleep(HEARTBEAT_PERIOD)
 
-        if app.updater is not None and not app.updater.running:
-            logging.error("Опрос остановился — выходим, чтобы перезапуститься")
-            app.stop_running()
-            return
+            if app.updater is not None and not app.updater.running:
+                logging.error("Опрос остановился — выходим, чтобы перезапуститься")
+                app.stop_running()
+                return
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        # задача заведена до старта приложения, и её исключение никто не ждёт:
+        # без этой записи отметка просто перестала бы обновляться, а причину
+        # пришлось бы угадывать по перезапуску от сторожа
+        logging.exception("Хартбит упал — отметка больше не обновляется")
+        raise
 
 async def start_heartbeat(app: Application) -> None:
     if os.getenv("HEARTBEAT_PATH"):
