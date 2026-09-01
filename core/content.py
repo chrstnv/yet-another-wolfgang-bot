@@ -197,11 +197,13 @@ def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
                 flaws["лицензия записи не указана"].append(f"{card_id}: {recording.get('source', '?')}")
 
         # изъяны самого факта — описание тут ни при чём
-        for number, fact in enumerate(card.get("facts") or []):
+        for number, fact in enumerate(card.get("facts") or [], start=1):
             if LEANING.match(fact):
                 flaws["факт опирается на соседний"].append(f"{card_id}: факт {number}")
 
-            if len(SENTENCE_END.findall(fact)) > SENTENCES:
+            # цитату считаем одним куском текста: восклицание внутри неё —
+            # знак чужой речи, а не конец нашего предложения
+            if len(SENTENCE_END.findall(QUOTED.sub("", fact))) > SENTENCES:
                 flaws["факт длиннее двух предложений"].append(f"{card_id}: факт {number}")
 
             if THROAT_CLEARING.match(fact):
@@ -215,7 +217,9 @@ def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
         facts = card.get("facts") or []
         for first, second in itertools.combinations(range(len(facts)), 2):
             if overlap(meaningful(facts[first]), meaningful(facts[second])) >= TWINS:
-                flaws["факты повторяют друг друга"].append(f"{card_id}: факты {first} и {second}")
+                flaws["факты повторяют друг друга"].append(
+                    f"{card_id}: факты {first + 1} и {second + 1}"
+                )
 
         description = card.get("description") or ""
         if not description:
@@ -233,7 +237,7 @@ def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
                 break
 
         words = meaningful(description)
-        for number, fact in enumerate(card.get("facts") or []):
+        for number, fact in enumerate(card.get("facts") or [], start=1):
             if words and len(words & meaningful(fact)) / len(words) >= RETELLING:
                 flaws["описание пересказывает факт"].append(f"{card_id}: факт {number}")
 

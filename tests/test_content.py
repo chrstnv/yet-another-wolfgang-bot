@@ -231,6 +231,25 @@ def test_flaws_leave_a_fact_of_two_sentences():
 
     assert not found["факт длиннее двух предложений"]
 
+def test_flaws_let_a_quote_shout_inside_a_fact():
+    """Восклицание в чужой речи — не конец нашего предложения."""
+    found = flaws_of(
+        title="Форе — «Павана»",
+        fragments=[{"name": "Павана", "start": "0", "audio_file_id": "x"}],
+        facts=["Директор отрезал: «Форе? Никогда! Я подам в отставку». Место он получил позже."],
+    )
+
+    assert not found["факт длиннее двух предложений"]
+
+def test_flaws_count_facts_from_one():
+    found = flaws_of(
+        title="Бах — Токката и фуга ре минор",
+        fragments=[{"name": "Начало", "start": "0", "audio_file_id": "x"}],
+        facts=["Первое. Второе. Третье."],
+    )
+
+    assert found["факт длиннее двух предложений"] == ["card: факт 1"]
+
 def test_flaws_catch_a_fact_that_promises_instead_of_telling():
     found = flaws_of(
         title="Гайдн — «Времена года»",
