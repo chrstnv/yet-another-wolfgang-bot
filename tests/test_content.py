@@ -231,6 +231,30 @@ def test_flaws_leave_a_fact_of_two_sentences():
 
     assert not found["факт длиннее двух предложений"]
 
+ПОЛНАЯ = dict(
+    composer="Бах", era="барокко", genre="пьеса", instrument="орган",
+    difficulty=2, year=1704,
+)
+
+def test_flaws_catch_a_card_without_reference_fields():
+    """Их не читает бот, поэтому пропажу видно только проверке."""
+    found = flaws_of(title="Бах — Токката и фуга ре минор", **{**ПОЛНАЯ, "year": None})
+
+    assert found["справочные поля не заполнены"] == ["card: year"]
+
+def test_flaws_check_reference_fields_on_a_card_without_audio():
+    """Карточка-ловушка тоже попадает в статистику, и поля ей нужны."""
+    found = flaws_of(title="Бах — Токката и фуга ре минор")
+
+    assert found["справочные поля не заполнены"] == [
+        "card: composer, era, genre, instrument, difficulty, year"
+    ]
+
+def test_flaws_leave_a_card_with_all_reference_fields():
+    found = flaws_of(title="Бах — Токката и фуга ре минор", **ПОЛНАЯ)
+
+    assert not found["справочные поля не заполнены"]
+
 def test_flaws_let_a_quote_shout_inside_a_fact():
     """Восклицание в чужой речи — не конец нашего предложения."""
     found = flaws_of(

@@ -154,6 +154,10 @@ THROAT_CLEARING = re.compile(
 
 # на своих карточках Вольфганг говорит от первого лица, но в чужой прямой речи
 # фамилия законна: «оркестр заорал „Виват, великий Моцарт!“»
+# поля, по которым мы отбираем и считаем библиотеку. Бот их не читает, карточка
+# без них работает — и заметить пропажу нечем, пока кто-нибудь не соберёт статистику
+REFERENCE_FIELDS = ("composer", "era", "genre", "instrument", "difficulty", "year")
+
 MOZART = "Моцарт"
 QUOTED = re.compile(r"«[^»]*»")
 THIRD_PERSON_MOZART = re.compile(r"\bМоцарт[а-яё]*\b")
@@ -170,6 +174,7 @@ def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
         "факт начинается с обещания",
         "Моцарт говорит о себе в третьем лице",
         "названия сливаются при обрезке",
+        "справочные поля не заполнены",
         "у фрагмента не записана засечка",
         "лицензия записи не указана",
     )}
@@ -183,6 +188,10 @@ def find_flaws(cards: list[dict]) -> dict[str, list[str]]:
         if short in seen_short:
             flaws["названия сливаются при обрезке"].append(f"{card_id} и {seen_short[short]}: «{short}…»")
         seen_short[short] = card_id
+
+        missing = [field for field in REFERENCE_FIELDS if not card.get(field)]
+        if missing:
+            flaws["справочные поля не заполнены"].append(f"{card_id}: {', '.join(missing)}")
 
         fragments = card.get("fragments") or []
         if not fragments:
